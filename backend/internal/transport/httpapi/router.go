@@ -21,16 +21,22 @@ type locationService interface {
 	Search(context.Context, string) ([]location.Result, error)
 }
 
+type outlookService interface {
+	Get(context.Context, weather.Coordinates, string) (weather.Outlook, error)
+}
+
 type API struct {
 	weather  weatherService
 	location locationService
+	outlook  outlookService
 }
 
-func New(weather weatherService, location locationService) http.Handler {
-	api := &API{weather: weather, location: location}
+func New(weather weatherService, location locationService, outlook outlookService) http.Handler {
+	api := &API{weather: weather, location: location, outlook: outlook}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/v1/health", api.health)
 	mux.HandleFunc("/api/v1/weather", api.forecast)
+	mux.HandleFunc("/api/v1/weather/outlook", api.weatherOutlook)
 	mux.HandleFunc("/api/v1/locations", api.locations)
 	return api.middleware(mux)
 }
@@ -68,6 +74,40 @@ func (api *API) forecast(writer http.ResponseWriter, request *http.Request) {
 	if err != nil {
 		log.Printf("weather request failed: %v", err)
 		writeError(writer, http.StatusBadGateway, "weather_unavailable", "Die Wetterdaten sind momentan nicht erreichbar.")
+		return
+	}
+	writeJSON(writer, http.StatusOK, result)
+}
+
+func (api *API) weatherOutlook(writer http.ResponseWriter, request *http.Request) {
+	if request.Method != http.MethodGet {
+		methodNotAllowed(writer)
+		return
+	}
+	latitude, err := numberParam(request, "lat", 50.9991)
+	if err != nil || latitude < -90 || latitude > 90 {
+		writeError(writer, http.StatusBadRequest, "invalid_coordinates", "Der Breitengrad ist ungültig.")
+		return
+	}
+	longitude, err := numberParam(request, "lon", 7.0387)
+	if err != nil || longitude < -180 || longitude > 180 {
+		writeError(writer, http.StatusBadRequest, "invalid_coordinates", "Der Längengrad ist ungültig.")
+		return
+	}
+	view := request.URL.Query().Get("view")
+	if view == "" {
+		view = "16"
+	}
+	if view != "16" && view != "30" {
+		writeError(writer, http.StatusBadRequest, "invalid_view", "Erlaubt sind 16 oder 30 Tage.")
+		return
+	}
+	ctx, cancel := context.WithTimeout(request.Context(), 30*time.Second)
+	defer cancel()
+	result, err := api.outlook.Get(ctx, weather.Coordinates{Latitude: latitude, Longitude: longitude}, view)
+	if err != nil {
+		log.Printf("outlook request failed: %v", err)
+		writeError(writer, http.StatusBadGateway, "outlook_unavailable", "Die Langfristmodelle sind momentan nicht erreichbar.")
 		return
 	}
 	writeJSON(writer, http.StatusOK, result)

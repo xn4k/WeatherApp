@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { getForecast } from './api/weather'
 import DailyForecast from './components/DailyForecast.vue'
 import LocationSearch from './components/LocationSearch.vue'
+import LongRangeLab from './components/LongRangeLab.vue'
 import PaletteControl from './components/PaletteControl.vue'
 import WeatherChart from './components/WeatherChart.vue'
 import { usePalette } from './composables/usePalette'
@@ -190,6 +191,12 @@ onMounted(loadForecast)
             </div>
           </div>
         </section>
+
+        <LongRangeLab
+          :key="`${forecast.coordinates.latitude}:${forecast.coordinates.longitude}`"
+          :latitude="forecast.coordinates.latitude"
+          :longitude="forecast.coordinates.longitude"
+        />
 
         <DailyForecast :days="forecast.daily" />
 

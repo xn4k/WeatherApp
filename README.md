@@ -10,6 +10,9 @@ Unsicherheit ohne Werbung, Clickbait oder dramatisierende Texte.
 - paralleler Vergleich von ICON, ECMWF IFS und GFS
 - interaktive 36-Stunden-Kurven für Temperatur, Niederschlag und Wind
 - 10-Tage-Ausblick als Median der verfügbaren Modelle
+- 16-Tage-Modellvergleich mit ICON, IFS, AIFS, GFS, Median und Modellspanne
+- 30-Tage-Ensembles aus GEFS und EC46 mit 82 Läufen sowie P10–P90-Bändern
+- interaktives Langfrist-Labor mit Maus-, Touch- und Tastatursteuerung
 - transparente Modellspanne und einfache Übereinstimmungsbewertung
 - zehn Minuten Cache mit Rückfall auf ältere Daten bei Provider-Ausfällen
 - sechs kuratierte Farbpaletten mit automatischer Rotation pro Besuch
@@ -27,7 +30,7 @@ Vue 3 / TypeScript
 Go HTTP Transport
         │
         ▼
-Weather + Location Services
+Weather + Outlook + Location Services
         │
         ▼
 Provider Ports ─── Open-Meteo Adapter
@@ -74,6 +77,8 @@ Danach läuft ISOBAR unter `http://localhost:8090`. Über `ISOBAR_PORT` kann ein
 GET /api/v1/health
 GET /api/v1/locations?q=Köln
 GET /api/v1/weather?lat=50.9991&lon=7.0387&name=Köln
+GET /api/v1/weather/outlook?view=16&lat=50.9991&lon=7.0387
+GET /api/v1/weather/outlook?view=30&lat=50.9991&lon=7.0387
 ```
 
 ## Leitlinien

@@ -16,6 +16,7 @@ func main() {
 	provider := openmeteo.NewClient()
 	weatherService := weather.NewService(provider)
 	locationService := location.NewService(provider)
+	outlookService := weather.NewOutlookService(provider)
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -23,10 +24,10 @@ func main() {
 	}
 	server := &http.Server{
 		Addr:              ":" + port,
-		Handler:           httpapi.New(weatherService, locationService),
+		Handler:           httpapi.New(weatherService, locationService, outlookService),
 		ReadHeaderTimeout: 5 * time.Second,
-		ReadTimeout:       20 * time.Second,
-		WriteTimeout:      20 * time.Second,
+		ReadTimeout:       35 * time.Second,
+		WriteTimeout:      35 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
 	log.Printf("ISOBAR API listening on %s", server.Addr)

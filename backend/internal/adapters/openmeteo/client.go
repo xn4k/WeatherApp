@@ -34,7 +34,7 @@ var models = []modelDefinition{
 
 func NewClient() *Client {
 	return &Client{
-		httpClient:   &http.Client{Timeout: 12 * time.Second},
+		httpClient:   &http.Client{Timeout: 28 * time.Second},
 		forecastURL:  "https://api.open-meteo.com/v1/forecast",
 		geocodingURL: "https://geocoding-api.open-meteo.com/v1/search",
 	}
