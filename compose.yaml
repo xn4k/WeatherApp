@@ -1,0 +1,36 @@
+name: isobar
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-isobar}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-isobar-local}
+      POSTGRES_DB: ${POSTGRES_DB:-isobar}
+    volumes:
+      - isobar-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-isobar}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build: ./backend
+    environment:
+      PORT: "8081"
+      DATABASE_URL: postgres://${POSTGRES_USER:-isobar}:${POSTGRES_PASSWORD:-isobar-local}@db:5432/${POSTGRES_DB:-isobar}?sslmode=disable
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "${ISOBAR_PORT:-8090}:80"
+    depends_on:
+      - backend
+
+volumes:
+  isobar-data:
+
