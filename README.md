@@ -441,9 +441,11 @@ Es werden keine Functions und kein Cloud Run deployt.
 | `VITE_WEATHER_SOURCE` | `server` | `server` oder `direct` |
 | `VITE_FIREBASE_ANALYTICS_ENABLED` | `false` | Analytics-Buildschalter |
 
-Die Firebase-Webkonfiguration ist keine Server-Zugangsinformation. Sicherheit
-für spätere Firebase-Daten entsteht durch Auth und Security Rules, nicht durch
-das Verstecken der Web-Konfiguration.
+Die Firebase-Webkonfiguration ist zwar öffentlich vorgesehen, wird aber zur
+sauberen Umgebungstrennung nicht im Repository gespeichert. Lokal liegt sie in
+`frontend/.env.firebase.local`; die Vorlage steht in `frontend/.env.example`.
+Sicherheit für spätere Daten entsteht zusätzlich durch Auth, Security Rules und
+App Check.
 
 ## REST API
 

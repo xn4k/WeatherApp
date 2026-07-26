@@ -1,17 +1,28 @@
 import { getApp, getApps, initializeApp } from 'firebase/app'
+import type { FirebaseApp } from 'firebase/app'
 import type { Analytics } from 'firebase/analytics'
 
-const firebaseConfig = {
-  apiKey: 'AIzaSyBT-uxGFu3JlQI7CaUIWRddi0Cv-n7R1eg',
-  authDomain: 'isobar-7d8eb.firebaseapp.com',
-  projectId: 'isobar-7d8eb',
-  storageBucket: 'isobar-7d8eb.firebasestorage.app',
-  messagingSenderId: '622712416218',
-  appId: '1:622712416218:web:3022919729850ccd2482e3',
-  measurementId: 'G-BCGQ0QRSGF',
-} as const
+let app: FirebaseApp | null = null
 
-export const firebaseApp = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig)
+export function getFirebaseApp(): FirebaseApp | null {
+  if (app) return app
+  const apiKey = import.meta.env.VITE_FIREBASE_API_KEY
+  const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID
+  const appId = import.meta.env.VITE_FIREBASE_APP_ID
+  if (!apiKey || !projectId || !appId) return null
+
+  const firebaseConfig = {
+    apiKey,
+    projectId,
+    appId,
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+    measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
+  }
+  app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig)
+  return app
+}
 
 export async function initializeFirebaseAnalytics(): Promise<Analytics | null> {
   if (
@@ -21,7 +32,8 @@ export async function initializeFirebaseAnalytics(): Promise<Analytics | null> {
   ) {
     return null
   }
-
+  const firebaseApp = getFirebaseApp()
+  if (!firebaseApp) return null
   const { getAnalytics, isSupported } = await import('firebase/analytics')
   if (!(await isSupported())) return null
   return getAnalytics(firebaseApp)
