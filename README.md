@@ -210,7 +210,7 @@ wertvoll, sobald eine dieser Anforderungen entsteht:
 - eigene Datenanalyse
 - kommerzieller Betrieb
 
-Wir haben deshalb nicht zwei Oberflächen gebaut. Wir haben zwei Adapter hinter
+Ich habe deshalb nicht zwei Oberflächen gebaut. Wir haben zwei Adapter hinter
 demselben Frontend-Vertrag gebaut.
 
 ## Architektur des Go-Backends
