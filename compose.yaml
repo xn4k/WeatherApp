@@ -25,7 +25,10 @@ services:
         condition: service_healthy
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        VITE_FIREBASE_ANALYTICS_ENABLED: ${VITE_FIREBASE_ANALYTICS_ENABLED:-false}
     ports:
       - "${ISOBAR_PORT:-8090}:80"
     depends_on:

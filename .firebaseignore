@@ -1,0 +1,12 @@
+.git/
+.env
+backend/
+frontend/node_modules/
+frontend/src/
+frontend/public/
+frontend/*.json
+frontend/*.ts
+frontend/Dockerfile
+frontend/nginx.conf
+compose.yaml
+README.md

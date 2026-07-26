@@ -6,12 +6,18 @@ interface APIError {
   }
 }
 
+const useBrowserAdapter = import.meta.env.VITE_WEATHER_SOURCE === 'direct'
+
 export async function getOutlook(
   view: OutlookView,
   latitude: number,
   longitude: number,
   signal?: AbortSignal,
 ): Promise<Outlook> {
+  if (useBrowserAdapter) {
+    const { getBrowserOutlook } = await import('../adapters/browser-weather/outlook')
+    return getBrowserOutlook(view, latitude, longitude, signal)
+  }
   const query = new URLSearchParams({
     view,
     lat: latitude.toString(),
