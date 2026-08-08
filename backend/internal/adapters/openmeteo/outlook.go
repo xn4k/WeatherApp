@@ -27,6 +27,24 @@ type dynamicDailyResponse struct {
 type outlookDefinition struct {
 	id, name, short, suffix string
 }
+type ensembleDefinition struct {
+	endpoint          string
+	model             string
+	id                string
+	name              string
+	short             string
+	forecastDays      int
+	excludeFromFusion bool
+}
+
+var ensembleDefinitions = []ensembleDefinition{
+	{endpoint: ensembleURL, model: "dwd_icon_eu_eps", id: "icon-eu", name: "DWD ICON-EU EPS", short: "ICON-EU", forecastDays: 5},
+	{endpoint: ensembleURL, model: "ecmwf_ifs025_ensemble", id: "ifs-ens", name: "ECMWF IFS ENS", short: "IFS ENS", forecastDays: 15},
+	{endpoint: ensembleURL, model: "ecmwf_aifs025_ensemble", id: "aifs-ens", name: "ECMWF AIFS ENS", short: "AIFS ENS", forecastDays: 15},
+	{endpoint: ensembleURL, model: "ncep_gefs05", id: "gefs", name: "NOAA GEFS 0.5\u00b0", short: "GEFS", forecastDays: 30},
+	{endpoint: ensembleURL, model: "google_weathernext2_ensemble", id: "weathernext2", name: "Google WeatherNext 2", short: "WN2", forecastDays: 15},
+	{endpoint: seasonalURL, model: "ecmwf_ec46", id: "ec46", name: "ECMWF EC46", short: "EC46", forecastDays: 30, excludeFromFusion: true},
+}
 
 func (c *Client) ModelOutlook(ctx context.Context, coordinates weather.Coordinates) ([]weather.OutlookModel, []string, error) {
 	values := url.Values{
@@ -102,34 +120,29 @@ func normalizeModel(daily map[string]json.RawMessage, dates []string, definition
 }
 
 func (c *Client) EnsembleOutlook(ctx context.Context, coordinates weather.Coordinates) ([]weather.EnsembleModel, []string, error) {
-	type definition struct{ endpoint, model, id, name, short string }
-	definitions := []definition{
-		{ensembleURL, "ncep_gefs05", "gefs", "NOAA GFS Ensemble", "GEFS"},
-		{seasonalURL, "ecmwf_ec46", "ec46", "ECMWF EC46", "EC46"},
-	}
 	type outcome struct {
 		index int
 		model weather.EnsembleModel
 		err   error
 	}
-	results := make(chan outcome, len(definitions))
+	results := make(chan outcome, len(ensembleDefinitions))
 	var group sync.WaitGroup
-	for index, item := range definitions {
+	for index, item := range ensembleDefinitions {
 		group.Add(1)
-		go func(index int, item definition) {
+		go func(index int, item ensembleDefinition) {
 			defer group.Done()
-			model, err := c.fetchEnsemble(ctx, coordinates, item.endpoint, item.model, item.id, item.name, item.short)
+			model, err := c.fetchEnsemble(ctx, coordinates, item)
 			results <- outcome{index: index, model: model, err: err}
 		}(index, item)
 	}
 	group.Wait()
 	close(results)
-	ordered := make([]weather.EnsembleModel, len(definitions))
-	available := make([]bool, len(definitions))
+	ordered := make([]weather.EnsembleModel, len(ensembleDefinitions))
+	available := make([]bool, len(ensembleDefinitions))
 	var warnings []string
 	for result := range results {
 		if result.err != nil {
-			warnings = append(warnings, definitions[result.index].short+" nicht verfügbar")
+			warnings = append(warnings, ensembleDefinitions[result.index].short+" nicht verfügbar")
 			continue
 		}
 		ordered[result.index], available[result.index] = result.model, true
@@ -146,18 +159,19 @@ func (c *Client) EnsembleOutlook(ctx context.Context, coordinates weather.Coordi
 	return models, warnings, nil
 }
 
-func (c *Client) fetchEnsemble(ctx context.Context, coordinates weather.Coordinates, endpoint, model, id, name, short string) (weather.EnsembleModel, error) {
+func (c *Client) fetchEnsemble(ctx context.Context, coordinates weather.Coordinates, definition ensembleDefinition) (weather.EnsembleModel, error) {
 	values := url.Values{
-		"latitude":      {strconv.FormatFloat(coordinates.Latitude, 'f', 5, 64)},
-		"longitude":     {strconv.FormatFloat(coordinates.Longitude, 'f', 5, 64)},
-		"models":        {model},
-		"daily":         {"temperature_2m_mean,precipitation_sum"},
-		"forecast_days": {"30"},
-		"timezone":      {"auto"},
+		"latitude":            {strconv.FormatFloat(coordinates.Latitude, 'f', 5, 64)},
+		"longitude":           {strconv.FormatFloat(coordinates.Longitude, 'f', 5, 64)},
+		"models":              {definition.model},
+		"daily":               {"temperature_2m_mean,precipitation_sum"},
+		"forecast_days":       {strconv.Itoa(definition.forecastDays)},
+		"timezone":            {"auto"},
+		"temporal_resolution": {"native"},
 	}
-	daily, err := c.fetchDynamicDaily(ctx, endpoint, values)
+	daily, err := c.fetchDynamicDaily(ctx, definition.endpoint, values)
 	if err != nil {
-		return weather.EnsembleModel{}, fmt.Errorf("%s: %w", short, err)
+		return weather.EnsembleModel{}, fmt.Errorf("%s: %w", definition.short, err)
 	}
 	dates, err := decodeStrings(daily, "time")
 	if err != nil {
@@ -182,12 +196,18 @@ func (c *Client) fetchEnsemble(ctx context.Context, coordinates weather.Coordina
 			Date:              date,
 			TemperatureMedian: quantile(tempValues, .5), TemperatureP10: quantile(tempValues, .1), TemperatureP90: quantile(tempValues, .9),
 			PrecipitationMedian: quantile(rainValues, .5), PrecipitationP10: quantile(rainValues, .1), PrecipitationP90: quantile(rainValues, .9),
+			TemperatureMembers: tempValues, PrecipitationMembers: rainValues,
 		})
 	}
 	if len(points) == 0 {
-		return weather.EnsembleModel{}, fmt.Errorf("%s returned no daily data", short)
+		return weather.EnsembleModel{}, fmt.Errorf("%s returned no daily data", definition.short)
 	}
-	return weather.EnsembleModel{ID: id, Name: name, Short: short, MemberCount: len(temperatures), Daily: points}, nil
+	return weather.EnsembleModel{
+		ID: definition.id, Name: definition.name, Short: definition.short,
+		MemberCount:       len(temperatures),
+		Daily:             points,
+		ExcludeFromFusion: definition.excludeFromFusion,
+	}, nil
 }
 
 func (c *Client) fetchDynamicDaily(ctx context.Context, endpoint string, values url.Values) (map[string]json.RawMessage, error) {

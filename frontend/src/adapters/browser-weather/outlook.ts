@@ -1,7 +1,9 @@
 import type {
   EnsembleDay,
   EnsembleModel,
+  FusionDay,
   Outlook,
+  OutlookFusion,
   OutlookModel,
   OutlookView,
 } from '../../types/outlook'
@@ -12,6 +14,7 @@ import {
   FORECAST_URL,
   quantile,
   queryURL,
+  round1,
   SEASONAL_URL,
 } from './shared'
 
@@ -116,42 +119,137 @@ function valuesAt(series: NullableSeries[], index: number) {
   })
 }
 
+interface EnsembleDefinition {
+  endpoint: string
+  model: string
+  id: string
+  name: string
+  short: string
+  forecastDays: number
+  includeInFusion: boolean
+}
+
+interface EnsembleMemberDay {
+  date: string
+  temperature: number[]
+  precipitation: number[]
+}
+
+interface EnsembleResult {
+  model: EnsembleModel
+  members: EnsembleMemberDay[]
+  includeInFusion: boolean
+}
+
+function weightedQuantile(groups: number[][], probability: number) {
+  const usable = groups.filter((group) => group.length > 0)
+  if (!usable.length) return 0
+  const modelWeight = 1 / usable.length
+  const samples = usable.flatMap((group) => {
+    const memberWeight = modelWeight / group.length
+    return group.map((value) => ({ value, weight: memberWeight }))
+  }).sort((a, b) => a.value - b.value)
+  const target = Math.max(0, Math.min(1, probability))
+  let cumulative = 0
+  for (const sample of samples) {
+    cumulative += sample.weight
+    if (cumulative + Number.EPSILON >= target) return round1(sample.value)
+  }
+  return round1(samples.at(-1)?.value ?? 0)
+}
+
+function balancedProbability(groups: number[][], threshold: number) {
+  const usable = groups.filter((group) => group.length > 0)
+  if (!usable.length) return 0
+  const probability = usable.reduce((sum, group) =>
+    sum + group.filter((value) => value >= threshold).length / group.length, 0) / usable.length
+  return round1(probability * 100)
+}
+
+function buildFusion(results: EnsembleResult[]): OutlookFusion {
+  const eligible = results.filter((result) => result.includeInFusion)
+  const allDates = [...new Set(eligible.flatMap((result) =>
+    result.members.map((day) => day.date),
+  ))].sort()
+  const daily = allDates.flatMap<FusionDay>((date) => {
+    const activeDays = eligible.flatMap((result) => {
+      const day = result.members.find((candidate) => candidate.date === date)
+      return day?.temperature.length ? [day] : []
+    })
+    if (!activeDays.length) return []
+    const temperatureGroups = activeDays.map((day) => day.temperature)
+    const precipitationGroups = activeDays
+      .map((day) => day.precipitation)
+      .filter((values) => values.length > 0)
+    return [{
+      date,
+      temperatureP10: weightedQuantile(temperatureGroups, 0.1),
+      temperatureP25: weightedQuantile(temperatureGroups, 0.25),
+      temperatureP50: weightedQuantile(temperatureGroups, 0.5),
+      temperatureP75: weightedQuantile(temperatureGroups, 0.75),
+      temperatureP90: weightedQuantile(temperatureGroups, 0.9),
+      precipitationP10: weightedQuantile(precipitationGroups, 0.1),
+      precipitationP50: weightedQuantile(precipitationGroups, 0.5),
+      precipitationP90: weightedQuantile(precipitationGroups, 0.9),
+      rainProbability1mm: balancedProbability(precipitationGroups, 1),
+      rainProbability10mm: balancedProbability(precipitationGroups, 10),
+      modelCount: activeDays.length,
+      memberCount: temperatureGroups.reduce((sum, values) => sum + values.length, 0),
+    }]
+  })
+  return {
+    method: 'equal-model-weighted-empirical',
+    daily,
+    notice: 'Jedes verfügbare Kurz- und Mittelfristmodell erhält pro Tag dasselbe Gewicht; seine Mitglieder teilen sich dieses Gewicht. Die Ereigniswerte sind rohe, modellbalancierte Ensemble-Wahrscheinlichkeiten und noch nicht historisch kalibriert. EC46 bleibt wegen seiner gröberen Skala eine separate Langfrist-Referenz.',
+  }
+}
+
 async function ensembleModel(
-  endpoint: string,
-  model: string,
-  id: string,
-  name: string,
-  short: string,
+  definition: EnsembleDefinition,
   latitude: number,
   longitude: number,
   signal?: AbortSignal,
-): Promise<EnsembleModel> {
-  const daily = await fetchDaily(endpoint, {
+): Promise<EnsembleResult> {
+  const daily = await fetchDaily(definition.endpoint, {
     latitude: latitude.toFixed(5),
     longitude: longitude.toFixed(5),
-    models: model,
+    models: definition.model,
     daily: 'temperature_2m_mean,precipitation_sum',
-    forecast_days: 30,
+    forecast_days: definition.forecastDays,
     timezone: 'auto',
   }, signal)
   const temperatures = memberSeries(daily, 'temperature_2m_mean')
   const precipitation = memberSeries(daily, 'precipitation_sum')
-  if (!temperatures.length) throw new Error(`${short} liefert keine Ensembleläufe.`)
-  const points = dates(daily).flatMap<EnsembleDay>((date, index) => {
+  if (!temperatures.length) throw new Error(`${definition.short} liefert keine Ensembleläufe.`)
+  const members = dates(daily).flatMap<EnsembleMemberDay>((date, index) => {
     const temperatureValues = valuesAt(temperatures, index)
     if (!temperatureValues.length) return []
-    const rainValues = valuesAt(precipitation, index)
     return [{
       date,
-      temperatureMedian: quantile(temperatureValues, 0.5),
-      temperatureP10: quantile(temperatureValues, 0.1),
-      temperatureP90: quantile(temperatureValues, 0.9),
-      precipitationMedian: quantile(rainValues, 0.5),
-      precipitationP10: quantile(rainValues, 0.1),
-      precipitationP90: quantile(rainValues, 0.9),
+      temperature: temperatureValues,
+      precipitation: valuesAt(precipitation, index),
     }]
   })
-  return { id, name, short, memberCount: temperatures.length, daily: points }
+  const points = members.map<EnsembleDay>((day) => ({
+    date: day.date,
+    temperatureMedian: round1(quantile(day.temperature, 0.5)),
+    temperatureP10: round1(quantile(day.temperature, 0.1)),
+    temperatureP90: round1(quantile(day.temperature, 0.9)),
+    precipitationMedian: round1(quantile(day.precipitation, 0.5)),
+    precipitationP10: round1(quantile(day.precipitation, 0.1)),
+    precipitationP90: round1(quantile(day.precipitation, 0.9)),
+  }))
+  return {
+    model: {
+      id: definition.id,
+      name: definition.name,
+      short: definition.short,
+      memberCount: temperatures.length,
+      daily: points,
+    },
+    members,
+    includeInFusion: definition.includeInFusion,
+  }
 }
 
 async function ensembleOutlook(
@@ -159,32 +257,34 @@ async function ensembleOutlook(
   longitude: number,
   signal?: AbortSignal,
 ): Promise<Outlook> {
-  const definitions = [
-    { endpoint: ENSEMBLE_URL, model: 'ncep_gefs05', id: 'gefs', name: 'NOAA GFS Ensemble', short: 'GEFS' },
-    { endpoint: SEASONAL_URL, model: 'ecmwf_ec46', id: 'ec46', name: 'ECMWF EC46', short: 'EC46' },
+  const definitions: EnsembleDefinition[] = [
+    { endpoint: ENSEMBLE_URL, model: 'dwd_icon_eu_eps', id: 'icon-eu', name: 'DWD ICON-EU EPS', short: 'ICON-EU', forecastDays: 5, includeInFusion: true },
+    { endpoint: ENSEMBLE_URL, model: 'ecmwf_ifs025_ensemble', id: 'ifs-ens', name: 'ECMWF IFS ENS', short: 'IFS ENS', forecastDays: 15, includeInFusion: true },
+    { endpoint: ENSEMBLE_URL, model: 'ecmwf_aifs025_ensemble', id: 'aifs-ens', name: 'ECMWF AIFS ENS', short: 'AIFS ENS', forecastDays: 15, includeInFusion: true },
+    { endpoint: ENSEMBLE_URL, model: 'ncep_gefs05', id: 'gefs', name: 'NOAA GEFS 0.5°', short: 'GEFS', forecastDays: 30, includeInFusion: true },
+    { endpoint: ENSEMBLE_URL, model: 'google_weathernext2_ensemble', id: 'weathernext2', name: 'Google WeatherNext 2', short: 'WN2', forecastDays: 15, includeInFusion: true },
+    { endpoint: SEASONAL_URL, model: 'ecmwf_ec46', id: 'ec46', name: 'ECMWF EC46', short: 'EC46', forecastDays: 30, includeInFusion: false },
   ]
   const outcomes = await Promise.allSettled(definitions.map((definition) =>
     ensembleModel(
-      definition.endpoint,
-      definition.model,
-      definition.id,
-      definition.name,
-      definition.short,
+      definition,
       latitude,
       longitude,
       signal,
     ),
   ))
-  const ensembles = outcomes.flatMap((outcome) => outcome.status === 'fulfilled' ? [outcome.value] : [])
+  const successful = outcomes.flatMap((outcome) => outcome.status === 'fulfilled' ? [outcome.value] : [])
   const warnings = outcomes.flatMap((outcome, index) =>
     outcome.status === 'rejected' ? [`${definitions[index].short} nicht verfügbar`] : [],
   )
-  if (!ensembles.length) throw new Error('Die Ensemblemodelle sind momentan nicht erreichbar.')
+  if (!successful.length) throw new Error('Die Ensemblemodelle sind momentan nicht erreichbar.')
+  const fusion = buildFusion(successful)
   return {
     mode: 'ensemble',
-    horizonDays: 30,
-    ensembles,
-    notice: 'Das Band zeigt P10 bis P90 der Ensembleläufe. Es ist ein Wahrscheinlichkeitsraum, keine garantierte Tagesprognose.',
+    horizonDays: fusion.daily.length,
+    ensembles: successful.map((result) => result.model),
+    fusion,
+    notice: 'P10 bis P90 markieren den modellierten Wahrscheinlichkeitsraum. Mit wachsendem Horizont sinken Modellzahl und räumliche Präzision.',
     warnings,
     refreshedAt: new Date().toISOString(),
     source: 'refresh',
@@ -198,7 +298,7 @@ export function getBrowserOutlook(
   signal?: AbortSignal,
 ) {
   return cached(
-    `outlook:${view}:${latitude.toFixed(4)}:${longitude.toFixed(4)}`,
+    `outlook:v2:${view}:${latitude.toFixed(4)}:${longitude.toFixed(4)}`,
     30 * 60_000,
     () => view === '16'
       ? modelOutlook(latitude, longitude, signal)

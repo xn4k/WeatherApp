@@ -15,8 +15,20 @@ export async function getOutlook(
   signal?: AbortSignal,
 ): Promise<Outlook> {
   if (useBrowserAdapter) {
+    const published = view === '30'
+      ? await import('../adapters/firebase-weather/outlook')
+        .then(({ getPublishedOutlook }) => getPublishedOutlook(latitude, longitude))
+        .catch(() => null)
+      : null
+    if (published?.fresh) return published.outlook
+
     const { getBrowserOutlook } = await import('../adapters/browser-weather/outlook')
-    return getBrowserOutlook(view, latitude, longitude, signal)
+    try {
+      return await getBrowserOutlook(view, latitude, longitude, signal)
+    } catch (error) {
+      if (published) return { ...published.outlook, source: 'stale' }
+      throw error
+    }
   }
   const query = new URLSearchParams({
     view,

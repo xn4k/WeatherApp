@@ -26,8 +26,16 @@ npx firebase-tools deploy --only hosting
 
 Firebase Hosting führt vor dem Deployment automatisch `build:firebase` aus.
 
-## Spätere Firebase-Dienste
+## Firestore und zeitgesteuerter Collector
 
-Auth und Firestore können innerhalb ihrer Spark-Kontingente modular ergänzt
-werden. Serverseitige Cloud Functions und Cloud Run sind bewusst nicht Teil
-dieser Variante.
+Firestore ist jetzt als optionaler öffentlicher Lesespeicher integriert. Der
+Browser besitzt keine Schreibrechte. Ein GitHub-Actions-Workflow lädt alle sechs
+Stunden die Modellläufe und schreibt sie mit einem privilegierten, niemals im
+Repository gespeicherten Servicekonto.
+
+Fehlt für einen Ort ein frischer Firestore-Lauf, verwendet der Firebase-Build
+weiterhin den direkten Open-Meteo-Adapter. Cloud Functions und Cloud Run bleiben
+bewusst außerhalb des Spark-Betriebs.
+
+Die vollständige Erklärung steht in `docs/ARCHITECTURE.md`; Einrichtung und
+Collector-Befehle stehen in `collector/README.md`.

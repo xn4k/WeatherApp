@@ -309,6 +309,8 @@ footer {
 .footer-brand { opacity: .42; }
 footer p { margin: 0; text-align: center; }
 footer p:last-child { text-align: right; text-transform: uppercase; }
+footer a { color: var(--text); text-decoration-color: var(--accent); text-underline-offset: 3px; }
+footer a:hover, footer a:focus-visible { color: var(--accent); }
 .loading-state, .error-state {
   min-height: calc(100vh - 88px); display: flex; flex-direction: column;
   align-items: center; justify-content: center; text-align: center;
