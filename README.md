@@ -9,6 +9,7 @@ dramatisierende Schlagzeilen.
 
 - Live auf Firebase: <https://isobar-7d8eb.web.app>
 - Lokal mit Docker: <http://localhost:8090>
+- Architektur und Lernpfad: [ISOBAR verstehen](docs/ARCHITECTURE.md)
 - Daten und Geocoding: [Open-Meteo](https://open-meteo.com/)
 
 ## Status
@@ -96,12 +97,12 @@ künstlich bis Tag 16 verlängert. Zusätzlich zeigt ISOBAR:
 
 ### 30-Tage-Ensembles
 
-Der 30-Tage-Modus verwendet:
+Der 30-Tage-Modus lädt mehrere Ensemble-Suites mit unterschiedlichen nativen
+Reichweiten. Die einzelnen Modelle bleiben mit ihren jeweiligen P10-, P50- und
+P90-Werten untersuchbar; der vollständige Modellsatz und die Rolle von EC46
+stehen im folgenden Abschnitt.
 
-- NOAA GEFS mit üblicherweise 31 Läufen
-- ECMWF EC46 mit üblicherweise 51 Läufen
-
-Für jeden Tag berechnet ISOBAR:
+Für jeden verfügbaren Modelltag berechnet ISOBAR:
 
 - P10
 - Median beziehungsweise P50
@@ -110,6 +111,53 @@ Für jeden Tag berechnet ISOBAR:
 Das Band zwischen P10 und P90 ist ein Wahrscheinlichkeitsraum. Es ist keine
 garantierte Tagesprognose. Die Ensembleansicht wird erst geladen, wenn sie
 angeklickt wird.
+
+### ISOBAR Fusion – Phase 1
+
+Die Ensembleansicht enthält zusätzlich eine eigene empirische Tagesfusion.
+Sie verbindet mehrere Ensemblemodelle, ohne sie zu einem scheinbar sicheren
+Einzelwert zu glätten:
+
+| Modell | Native Orientierung | Rolle in Phase 1 |
+| --- | --- | --- |
+| DWD ICON-EU EPS | regional, ungefähr bis Tag 5 | Kurzfristfusion |
+| ECMWF IFS ENS | global, ungefähr bis Tag 15 | Mittelbereichsfusion |
+| ECMWF AIFS ENS | KI-basiert, ungefähr bis Tag 15 | Mittelbereichsfusion |
+| Google WeatherNext 2 | KI-basiert, ungefähr bis Tag 15 | Mittelbereichsfusion |
+| NOAA GEFS 0.5° | global, bis ungefähr Tag 35 | Fusion, in der aktuellen Ansicht maximal 30 Tage |
+| ECMWF EC46 | erweiterte Orientierung bis ungefähr Tag 46 | separate Langfristansicht, nicht Teil der Tagesfusion |
+
+Die Reichweiten sind keine künstlich aufgefüllten Garantien. Sie richten sich
+nach den tatsächlich gelieferten Daten und können sich beim Provider ändern.
+Deshalb sinken Modell- und Mitgliederzahl mit wachsendem Horizont: Endet ein
+Modell oder fehlen Werte, wird es für den betreffenden Tag nicht mitgezählt.
+
+Die Methode heißt `equal-model-weighted-empirical`. Pro Tag erhält jedes
+verfügbare Fusionsmodell dasselbe Gesamtgewicht; seine Mitglieder teilen sich
+dieses Gewicht gleichmäßig. Ein Modell gewinnt dadurch nicht allein deshalb
+mehr Einfluss, weil es mehr Ensemblemitglieder liefert.
+
+Phase 1 berechnet:
+
+- Temperatur: P10, P25, P50, P75 und P90
+- Niederschlagsmenge: P10, P50 und P90
+- rohe tägliche Ensemblewahrscheinlichkeit für mindestens 1 mm Niederschlag
+- rohe tägliche Ensemblewahrscheinlichkeit für mindestens 10 mm Niederschlag
+- tatsächlich beteiligte Modell- und Mitgliederzahl je Tag
+
+„Roh“ ist dabei wichtig: Die Wahrscheinlichkeiten sind gewichtete empirische
+Anteile der aktuell verfügbaren Läufe. Sie sind noch nicht anhand historischer
+Beobachtungen kalibriert. Phase 1 kennt weder lokale Modellgüte noch saisonale
+Fehlerkorrekturen oder Skill-Gewichte. Run-to-run-Stabilität und historische
+Trefferquoten werden ebenfalls noch nicht berechnet.
+
+Die Modellaufrufe werden gecacht: im Go-Modus 30 Minuten im Arbeitsspeicher,
+im Firebase-Modus 30 Minuten pro Browser-Tab im `sessionStorage`. Einzelne
+Providerfehler werden als Warnung ausgewiesen; die Fusion verwendet dann nur
+die für den jeweiligen Tag erfolgreich verfügbaren Modelle. Sind gar keine
+verwertbaren Ensembledaten vorhanden, wird keine Fusion ausgegeben. Im
+Go-Modus kann bei einem vollständigen Aktualisierungsfehler zusätzlich der
+letzte abgelaufene Cache-Stand als `stale` zurückgegeben werden.
 
 ### Interaktion und Barrierearmut
 
@@ -486,6 +534,30 @@ Daten existieren, beispielsweise:
 
 So vermeiden wir leere Repository-Schichten und unnötige Tabellen.
 
+### Wissenschaftliche Roadmap
+
+Die nächste Stufe beginnt mit versionierten Prognose-Snapshots in PostgreSQL.
+Ein Snapshot soll mindestens Ort, Modell und Mitglied, Ausgabezeitpunkt,
+Gültigkeitszeitpunkt, Vorhersagehorizont und prognostizierte Werte enthalten.
+Erst mit diesen zeitlich korrekten Rohdaten können Vorhersagen später sauber
+gegen Beobachtungen geprüft werden.
+
+Geplante Schritte:
+
+1. Modellläufe und spätere Beobachtungen unverändert speichern.
+2. Güte getrennt nach Ort, Saison, Variable und Vorhersagehorizont auswerten.
+3. Temperaturfehler mit MAE und probabilistische Ereignisse mit dem Brier Score
+   messen.
+4. Ganze Vorhersageverteilungen mit CRPS prüfen.
+5. Nach ausreichender Out-of-sample-Validierung EMOS zur Bias-Korrektur und
+   Kalibrierung einführen.
+6. Erst danach mögliche Skill-Gewichte und eine Run-to-run-Stabilitätsanzeige
+   aus den gespeicherten Läufen ableiten.
+
+Diese Funktionen sind **noch nicht implementiert**. Insbesondere verwendet
+Phase 1 keine historische Kalibrierung, keine beobachtungsbasierten
+Modellgewichte und keinen Vergleich aufeinanderfolgender Modellläufe.
+
 ## Firebase Spark: Möglichkeiten und Grenzen
 
 Auf dem Spark-Plan können wir innerhalb der kostenlosen Kontingente später
@@ -527,9 +599,18 @@ Einwilligungs- und Datenschutzentscheidung.
 Open-Meteo verlangt eine Quellenangabe. Die App nennt Open-Meteo im Footer.
 
 Die kostenlose Open-Meteo-API ist für nichtkommerzielle Nutzung vorgesehen und
-aktuell begrenzt. Für kommerziellen Betrieb oder größere Reichweite muss der
-Providervertrag geprüft und gegebenenfalls ein Kunden-Endpunkt verwendet
-werden.
+aktuell auf weniger als 10.000 API-Aufrufe pro Tag, 5.000 pro Stunde und 600 pro
+Minute begrenzt. Lange Zeiträume und Anfragen mit mehreren Modellen oder
+Variablen können anteilig als mehrere API-Aufrufe gezählt werden. Für
+kommerziellen Betrieb oder größere Reichweite muss der Providervertrag geprüft
+und gegebenenfalls ein Kunden-Endpunkt verwendet werden.
+
+Die Fusion ruft mehrere Modelle beziehungsweise Endpunkte ab und verbraucht
+damit mehr API-Kontingent als eine einzelne Vorhersage. Lazy Loading, die oben
+beschriebenen Caches und das Weiterarbeiten mit Teilergebnissen begrenzen diese
+Last, heben die kostenlosen Limits aber nicht auf. Die Quellenangabe für
+Open-Meteo bleibt auch für die fusionierten Werte verpflichtend; ISOBAR zeigt
+sie im Footer.
 
 - [Open-Meteo-Dokumentation](https://open-meteo.com/en/docs)
 - [Open-Meteo-Preise und Limits](https://open-meteo.com/en/pricing)

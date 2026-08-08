@@ -205,7 +205,7 @@ onMounted(loadForecast)
             <span class="brand-mark"><i></i><i></i><i></i></span>
             <span>ISOBAR</span>
           </div>
-          <p>Wettermodelle und Geodaten: Open-Meteo. Prognosen sind keine Messwerte.</p>
+          <p>Wettermodelle und Geodaten: <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo</a>. Prognosen sind keine Messwerte.</p>
           <p>Keine Werbung. Keine Panik. Nur die Lage.</p>
         </footer>
       </template>
