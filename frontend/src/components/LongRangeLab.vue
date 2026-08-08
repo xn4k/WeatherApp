@@ -5,6 +5,7 @@ import type { ChartSeries } from '../types/chart'
 import type { FusionDay, Outlook, OutlookModelDay, OutlookView } from '../types/outlook'
 import LongRangeChart from './LongRangeChart.vue'
 import CalibrationStatusCard from './CalibrationStatus.vue'
+import MethodLab from './MethodLab.vue'
 
 const props = defineProps<{ latitude: number; longitude: number }>()
 
@@ -340,6 +341,8 @@ onBeforeUnmount(() => request?.abort())
         :floor-at-zero="unit === 'mm'"
       />
 
+
+      <MethodLab :outlook="data" />
       <div class="model-cards">
         <article v-for="model in data.models" :key="model.id">
           <span>{{ model.short }}</span><strong>{{ model.horizonDays }} Tage</strong><small>{{ model.name }}</small>
