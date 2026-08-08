@@ -92,15 +92,21 @@ Bereits umgesetzt:
 - Firestore-Snapshots mit gesperrten Browser-Schreibrechten;
 - GitHub-Actions-Zeitplan alle sechs Stunden;
 - Run-to-run-Metriken und Vue-Anzeige;
+- historische Referenzanalyse als ausdrücklich markierter `analysis-proxy`;
+- idempotente MAE-, CRPS- und Brier-Verifikation nach Vorhersagehorizont;
+- konservative Skill-Gewichte ab 14 verschiedenen Verifikationstagen;
+- sichtbarer Lern- und Aktivstatus im 30-Tage-Labor;
 - direkter Browser-Fallback für noch nicht überwachte Standorte.
 
 Noch nicht als fertige Wissenschaft behauptet:
 
-- keine zentrale Beobachtungsreihe;
-- noch keine MAE-, Brier- oder CRPS-Historie;
-- noch keine gelernten Modellgewichte;
+- die Referenzanalyse ist keine lokale Stationsmessung;
+- Skill-Gewichtung ist noch keine vollständige Wahrscheinlichkeitskalibrierung;
+- noch keine getrennte Out-of-sample-Freigabe gegen die eingefrorene Baseline;
 - noch keine EMOS-Kalibrierung;
 - noch keine belastbare Aussage, dass ISOBAR genauer als ein Einzelmodell ist.
+
+Methodik und Schutzregeln stehen in [Forecast-Verifikation und Skill-Gewichte](VERIFICATION.md).
 
 ## Sinnvolle Ausbaustufen
 

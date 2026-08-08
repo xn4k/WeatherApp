@@ -10,6 +10,7 @@ dramatisierende Schlagzeilen.
 - Live auf Firebase: <https://isobar-7d8eb.web.app>
 - Lokal mit Docker: <http://localhost:8090>
 - Architektur und Lernpfad: [ISOBAR verstehen](docs/ARCHITECTURE.md)
+- Verifikation und Skill-Gewichte: [Methodik und Grenzen](docs/VERIFICATION.md)
 - Daten und Geocoding: [Open-Meteo](https://open-meteo.com/)
 
 ## Status
@@ -536,27 +537,21 @@ So vermeiden wir leere Repository-Schichten und unnötige Tabellen.
 
 ### Wissenschaftliche Roadmap
 
-Die nächste Stufe beginnt mit versionierten Prognose-Snapshots in PostgreSQL.
-Ein Snapshot soll mindestens Ort, Modell und Mitglied, Ausgabezeitpunkt,
-Gültigkeitszeitpunkt, Vorhersagehorizont und prognostizierte Werte enthalten.
-Erst mit diesen zeitlich korrekten Rohdaten können Vorhersagen später sauber
-gegen Beobachtungen geprüft werden.
+Die serverlose Forschungsstufe speichert versionierte Prognose-Snapshots und
+Run-to-run-Verschiebungen bereits in Firestore. Nach Tagesende ordnet der
+Collector historische Referenzanalysen den alten Prognosen zu und berechnet
+MAE, CRPS sowie Brier Scores getrennt nach Vorhersagehorizont.
 
-Geplante Schritte:
+Ab 14 verschiedenen Verifikationstagen dürfen konservativ geschrumpfte und
+begrenzte Skill-Gewichte aktiv werden. Bis dahin bleibt jedes Modell gleich
+gewichtet. Der Referenzdatensatz ist ein global verfügbarer `analysis-proxy`,
+keine lokale Stationsmessung; die empirischen Regenwahrscheinlichkeiten sind
+auch mit Skill-Gewichten noch nicht vollständig kalibriert.
 
-1. Modellläufe und spätere Beobachtungen unverändert speichern.
-2. Güte getrennt nach Ort, Saison, Variable und Vorhersagehorizont auswerten.
-3. Temperaturfehler mit MAE und probabilistische Ereignisse mit dem Brier Score
-   messen.
-4. Ganze Vorhersageverteilungen mit CRPS prüfen.
-5. Nach ausreichender Out-of-sample-Validierung EMOS zur Bias-Korrektur und
-   Kalibrierung einführen.
-6. Erst danach mögliche Skill-Gewichte und eine Run-to-run-Stabilitätsanzeige
-   aus den gespeicherten Läufen ableiten.
-
-Diese Funktionen sind **noch nicht implementiert**. Insbesondere verwendet
-Phase 1 keine historische Kalibrierung, keine beobachtungsbasierten
-Modellgewichte und keinen Vergleich aufeinanderfolgender Modellläufe.
+Offen bleiben eine DWD-Stationsanbindung, saisonale Auswertung, ein echter
+Out-of-sample-Test gegen die eingefrorene Gleichgewichts-Baseline und erst
+danach mögliche Bias-Korrektur oder EMOS. Details stehen in
+[Forecast-Verifikation und Skill-Gewichte](docs/VERIFICATION.md).
 
 ## Firebase Spark: Möglichkeiten und Grenzen
 
@@ -644,8 +639,8 @@ Invoke-WebRequest https://isobar-7d8eb.web.app
 
 - Das aktuelle Design ist eine Wetter-App, noch keine PWA.
 - Es gibt noch keine amtlichen Unwetterwarnungen.
-- Es gibt keine zentrale Prognosehistorie.
-- Der Firebase-Modus besitzt nur einen Browser-Cache.
+- Die zentrale Prognosehistorie wird aktuell nur für konfigurierte Orte aufgebaut.
+- Historische Referenzen sind Analyse-Näherungen und noch keine DWD-Stationsmessungen.
 - Open-Meteo ist im kostenlosen Modus ohne Verfügbarkeitsgarantie.
 - Modellreichweiten unterscheiden sich und können sich providerseitig ändern.
 - PostgreSQL ist vorbereitet, aber fachlich noch nicht angeschlossen.

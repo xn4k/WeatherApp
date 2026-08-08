@@ -68,8 +68,19 @@ export interface RunStability {
   daily: RunStabilityDay[]
 }
 
+export interface CalibrationStatus {
+  method: 'skill-calibration-v1.0.0'
+  status: 'collecting' | 'active'
+  referenceKind: 'analysis-proxy'
+  distinctDays: number
+  scoredForecasts: number
+  minimumDays: number
+  activeBuckets: string[]
+  notice: string
+}
+
 export interface OutlookFusion {
-  method: 'equal-model-weighted-empirical'
+  method: 'equal-model-weighted-empirical' | 'skill-weighted-empirical'
   daily: FusionDay[]
   notice: string
 }
@@ -77,6 +88,7 @@ export interface OutlookFusion {
 export interface Outlook {
   runStability?: RunStability
   mode: 'models' | 'ensemble'
+  calibration?: CalibrationStatus | null
   horizonDays: number
   models?: OutlookModel[]
   ensembles?: EnsembleModel[]

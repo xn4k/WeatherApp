@@ -4,6 +4,7 @@ import { getOutlook } from '../api/outlook'
 import type { ChartSeries } from '../types/chart'
 import type { FusionDay, Outlook, OutlookModelDay, OutlookView } from '../types/outlook'
 import LongRangeChart from './LongRangeChart.vue'
+import CalibrationStatusCard from './CalibrationStatus.vue'
 
 const props = defineProps<{ latitude: number; longitude: number }>()
 
@@ -52,7 +53,9 @@ const chartSeries = computed<ChartSeries[]>(() => {
     const fusion = data.value.fusion
     const fusionSeries: ChartSeries[] = fusion ? [{
       id: 'isobar-fusion',
-      label: 'ISOBAR Fusion · modellbalanciert',
+      label: fusion.method === 'skill-weighted-empirical'
+        ? 'ISOBAR Fusion · skill-gewichtet'
+        : 'ISOBAR Fusion · modellbalanciert',
       color: 'var(--accent)',
       emphasized: true,
       values: fusion.daily.map((day) =>
@@ -253,7 +256,9 @@ onBeforeUnmount(() => request?.abort())
         <div class="console-head">
           <div>
             <span class="live-indicator"><i></i>Fusion aktiv</span>
-            <strong>Equal-model weighted empirical</strong>
+            <strong>{{ data.fusion.method === 'skill-weighted-empirical'
+              ? 'Historically verified skill weights'
+              : 'Equal-model weighted empirical' }}</strong>
           </div>
           <small>EC46 separat · keine Scheingenauigkeit</small>
         </div>
@@ -274,7 +279,9 @@ onBeforeUnmount(() => request?.abort())
           <article>
             <span>P50 Temperatur · {{ shortDate(signalDay.date) }}</span>
             <strong>{{ signalDay.temperatureP50.toFixed(1) }}<small>°C</small></strong>
-            <p>modellbalancierter Median</p>
+            <p>{{ data.fusion.method === 'skill-weighted-empirical'
+              ? 'historisch skill-gewichtet'
+              : 'modellbalancierter Median' }}</p>
           </article>
           <article>
             <span>80-%-Korridor</span>
@@ -284,12 +291,16 @@ onBeforeUnmount(() => request?.abort())
           <article>
             <span>Rohsignal · Regen ≥ 1 mm</span>
             <strong>{{ probability(signalDay.rainProbability1mm) }}</strong>
-            <p>modellbalanciert</p>
+            <p>{{ data.fusion.method === 'skill-weighted-empirical'
+              ? 'historisch skill-gewichtet'
+              : 'modellbalanciert' }}</p>
           </article>
           <article>
             <span>Rohsignal · Regen ≥ 10 mm</span>
             <strong>{{ probability(signalDay.rainProbability10mm) }}</strong>
-            <p>nicht historisch kalibriert</p>
+            <p>{{ data.fusion.method === 'skill-weighted-empirical'
+              ? 'skill-gewichtet · nicht kalibriert'
+              : 'nicht historisch kalibriert' }}</p>
           </article>
         </div>
       </section>
@@ -316,6 +327,11 @@ onBeforeUnmount(() => request?.abort())
           <strong>{{ data.runStability.meanAbsoluteRainShift.toFixed(1) }} Pp</strong>
         </article>
       </section>
+
+      <CalibrationStatusCard
+        v-if="data.mode === 'ensemble' && data.calibration"
+        :calibration="data.calibration"
+      />
 
       <LongRangeChart
         :dates="dates"
