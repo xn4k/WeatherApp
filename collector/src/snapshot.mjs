@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { ALGORITHM_VERSION } from './fusion.mjs'
+import { SKILL_ALGORITHM_VERSION as ALGORITHM_VERSION } from './skill-fusion.mjs'
 
 export const SCHEMA_VERSION = 1
 

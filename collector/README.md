@@ -1,6 +1,6 @@
 # ISOBAR Weather Collector
 
-Der Collector ersetzt im kostenlosen Firebase-Spark-Betrieb den fehlenden Dauer-Server. GitHub Actions startet ihn alle sechs Stunden. Er lädt Ensembleläufe, berechnet die Rohfusion und veröffentlicht versionierte Snapshots in Cloud Firestore.
+Der Collector ersetzt im kostenlosen Firebase-Spark-Betrieb den fehlenden Dauer-Server. GitHub Actions startet ihn alle sechs Stunden. Er lädt Ensembleläufe, veröffentlicht versionierte Snapshots, verifiziert fällige Prognosen und verwaltet konservative Skill-Gewichte in Cloud Firestore.
 
 ## Lokal ohne Schreibzugriff testen
 
@@ -50,6 +50,23 @@ Pro Standort entstehen ein aktuelles Standortdokument, ein Laufdokument und ein 
 - Teilfehler werden als Warnung gespeichert.
 - Unter zwei fusionierbaren Modellen schlägt der Lauf sichtbar fehl.
 - Die bestehende veröffentlichte Prognose wird bei einem fehlgeschlagenen Lauf nicht überschrieben.
+
+## Verifikation
+
+Nach jedem erfolgreichen Snapshot verarbeitet der Collector bis zu drei bereits
+abgeschlossene Kalendertage. Die Open-Meteo Historical Forecast API dient dabei
+als ausdrücklich markierter `analysis-proxy`, nicht als Stationsmessung.
+
+Score-Dokumente sind über `runId + validDate` idempotent. Aggregiert werden
+maximal 3.000 aktuelle Dokumente, getrennt nach den Horizonten Tag 0–3, 4–7,
+8–15 und 16–30. Skill-Gewichte werden erst ab 14 verschiedenen
+Verifikationstagen aktiviert, mit einer 30-Tage-Prior zur Gleichgewichtung hin
+geschrumpft und auf 0,5 bis 2,0 begrenzt.
+
+Die Gewichte für Temperatur und Niederschlag bleiben getrennt. Gewichtete
+Ensembleanteile sind weiterhin rohe Wahrscheinlichkeiten und keine vollständige
+Kalibrierung. Die ausführliche Methodik steht in
+[`docs/VERIFICATION.md`](../docs/VERIFICATION.md).
 
 ## Tests
 

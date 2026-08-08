@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import { createFirestore, publishSnapshot } from './firestore.mjs'
+import { loadCalibration, updateVerification } from './firestore-verification.mjs'
 import { collectOpenMeteo } from './openmeteo.mjs'
 import { buildSnapshot, snapshotSummary } from './snapshot.mjs'
 
@@ -32,12 +33,15 @@ async function main() {
 
   for (const location of locations) {
     console.log(`[collect] ${location.name}: Modelle werden geladen`)
-    const collected = await collectOpenMeteo(location)
+    const calibration = database ? await loadCalibration(database, location.id) : null
+    const collected = await collectOpenMeteo(location, fetch, calibration)
     const snapshot = buildSnapshot(location, collected)
     console.log(JSON.stringify(snapshotSummary(snapshot), null, 2))
     if (database) {
       const path = await publishSnapshot(database, snapshot)
       console.log(`[publish] ${path}`)
+      const verification = await updateVerification(database, location)
+      console.log(`[verify] ${JSON.stringify(verification)}`)
     }
   }
 

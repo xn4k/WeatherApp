@@ -1,4 +1,6 @@
-import { buildFusion, summarizeModel } from './fusion.mjs'
+import { publicCalibration } from './calibration.mjs'
+import { summarizeModel } from './fusion.mjs'
+import { buildSkillFusion } from './skill-fusion.mjs'
 
 const ENSEMBLE_URL = 'https://ensemble-api.open-meteo.com/v1/ensemble'
 const SEASONAL_URL = 'https://seasonal-api.open-meteo.com/v1/seasonal'
@@ -86,7 +88,7 @@ export async function loadModel(definition, location, fetchImpl = fetch) {
   return parseEnsembleDaily(definition, payload.daily)
 }
 
-export async function collectOpenMeteo(location, fetchImpl = fetch) {
+export async function collectOpenMeteo(location, fetchImpl = fetch, calibration = null) {
   const outcomes = await Promise.allSettled(MODEL_DEFINITIONS.map((definition) => (
     loadModel(definition, location, fetchImpl)
   )))
@@ -109,7 +111,7 @@ export async function collectOpenMeteo(location, fetchImpl = fetch) {
   const fusionModels = models.filter((model) => model.includeInFusion)
   if (fusionModels.length < 2) throw new Error('Zu wenige Ensemblemodelle für eine belastbare Fusion.')
 
-  const fusion = buildFusion(models)
+  const fusion = buildSkillFusion(models, calibration)
   return {
     models,
     outlook: {
@@ -117,6 +119,7 @@ export async function collectOpenMeteo(location, fetchImpl = fetch) {
       horizonDays: fusion.daily.length,
       ensembles: models.map(summarizeModel),
       fusion,
+      calibration: calibration ? publicCalibration(calibration) : null,
       notice: 'P10 bis P90 markieren den modellierten Wahrscheinlichkeitsraum. Mit wachsendem Horizont sinken Modellzahl und räumliche Präzision.',
       warnings,
       refreshedAt: new Date().toISOString(),
