@@ -115,7 +115,13 @@ export async function prepareReferenceLayer(
   }
 }
 
-export async function bestReferences(location, dates, referenceLayer, fetchImpl = fetch) {
+export async function bestReferences(
+  location,
+  dates,
+  referenceLayer,
+  fetchImpl = fetch,
+  warn = console.warn,
+) {
   const station = referenceLayer?.bundle
     ? stationReferences(referenceLayer.bundle, dates)
     : []
@@ -124,9 +130,15 @@ export async function bestReferences(location, dates, referenceLayer, fetchImpl 
     const entry = stationByDate.get(date)
     return !entry || !Number.isFinite(entry.temperatureMean) || !Number.isFinite(entry.precipitationSum)
   })
-  const fallback = needsFallback.length
-    ? await loadReferenceDays(location, needsFallback, fetchImpl)
-    : []
+  let fallback = []
+  if (needsFallback.length) {
+    try {
+      fallback = await loadReferenceDays(location, needsFallback, fetchImpl)
+    } catch (error) {
+      const label = location.name ?? location.id ?? 'unbekannter Standort'
+      warn?.('[reference] ' + label + ': Analysis-Proxy nicht verfuegbar; unvollstaendige Messtage werden uebersprungen (' + error.message + ').')
+    }
+  }
   const fallbackByDate = new Map(fallback.map((entry) => [entry.date, entry]))
 
   return dates.flatMap((date) => {

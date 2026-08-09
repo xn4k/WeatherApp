@@ -44,6 +44,49 @@ test('a missing DWD precipitation value falls back per variable without hiding s
   assert.equal(reference.variableSources.precipitation, 'open-meteo-historical-forecast-best-match')
 })
 
+test('an unavailable analysis proxy keeps complete DWD days and skips incomplete measurements', async () => {
+  const completeDate = '2026-08-07'
+  const incompleteDate = '2026-08-08'
+  const referenceLayer = {
+    bundle: {
+      station: { id: '01975', name: 'Hamburg-Fuhlsbuettel' },
+      recent: [
+        {
+          date: completeDate,
+          source: 'dwd-cdc',
+          kind: 'station-observation',
+          temperatureMean: 19.2,
+          precipitationSum: 0.4,
+          qualityStatus: 'provisional',
+        },
+        {
+          date: incompleteDate,
+          source: 'dwd-cdc',
+          kind: 'station-observation',
+          temperatureMean: 20.1,
+          precipitationSum: null,
+          qualityStatus: 'provisional',
+        },
+      ],
+    },
+  }
+  const warnings = []
+  const references = await bestReferences({
+    id: 'hamburg',
+    name: 'Hamburg',
+    latitude: 53.5511,
+    longitude: 9.9937,
+    timezone: 'Europe/Berlin',
+  }, [completeDate, incompleteDate], referenceLayer, async () => {
+    throw new TypeError('fetch failed')
+  }, (warning) => warnings.push(warning))
+
+  assert.deepEqual(references.map((reference) => reference.date), [completeDate])
+  assert.equal(references[0].source, 'dwd-cdc')
+  assert.equal(warnings.length, 1)
+  assert.match(warnings[0], /Analysis-Proxy nicht verfuegbar/)
+})
+
 test('champion CRPS reconstructs the skill weights frozen in the forecast run', () => {
   const date = '2026-08-10'
   const models = [
