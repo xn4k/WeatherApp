@@ -1,6 +1,8 @@
 import { publicCalibration } from './calibration.mjs'
 import { summarizeModel } from './fusion.mjs'
 import { buildSkillFusion } from './skill-fusion.mjs'
+import { buildShadowEvidence } from './evidence-engine.mjs'
+import { loadMosmix } from './mosmix.mjs'
 
 const ENSEMBLE_URL = 'https://ensemble-api.open-meteo.com/v1/ensemble'
 const SEASONAL_URL = 'https://seasonal-api.open-meteo.com/v1/seasonal'
@@ -112,6 +114,13 @@ export async function collectOpenMeteo(location, fetchImpl = fetch, calibration 
   if (fusionModels.length < 2) throw new Error('Zu wenige Ensemblemodelle für eine belastbare Fusion.')
 
   const fusion = buildSkillFusion(models, calibration)
+  const evidence = buildShadowEvidence(models, fusion, calibration)
+  let mosmix = null
+  try {
+    mosmix = await loadMosmix(location, fetchImpl)
+  } catch (error) {
+    warnings.push(`DWD MOSMIX nicht verfuegbar: ${error.message}`)
+  }
   return {
     models,
     outlook: {
@@ -119,6 +128,8 @@ export async function collectOpenMeteo(location, fetchImpl = fetch, calibration 
       horizonDays: fusion.daily.length,
       ensembles: models.map(summarizeModel),
       fusion,
+      evidence,
+      challengers: mosmix ? { mosmix } : {},
       calibration: calibration ? publicCalibration(calibration) : null,
       notice: 'P10 bis P90 markieren den modellierten Wahrscheinlichkeitsraum. Mit wachsendem Horizont sinken Modellzahl und räumliche Präzision.',
       warnings,

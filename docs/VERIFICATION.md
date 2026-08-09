@@ -21,14 +21,14 @@ GitHub Actions führt diesen Ablauf alle sechs Stunden aus. Die Verarbeitung ist
 
 ## Referenzdaten
 
-Die erste Referenzquelle ist die Open-Meteo Historical Forecast API mit `Best Match`. Open-Meteo setzt dafür die ersten Stunden aufeinanderfolgender, assimilierter Modellläufe zu einer historischen Zeitreihe zusammen.
+Die erste Referenzquelle sind tägliche DWD-CDC-Stationsmessungen. Für Köln ist Station `02667` Köln/Bonn explizit konfiguriert. Messqualität, Stationsentfernung und der Status `final` oder `provisional` bleiben erhalten.
 
-ISOBAR bezeichnet diese Quelle ausdrücklich als `analysis-proxy`:
+Fehlt ein Messtag, nutzt ISOBAR die Open-Meteo Historical Forecast API mit `Best Match` als ausdrücklich markierten `analysis-proxy`:
 
-- Sie liegt näher an den analysierten Wetterbedingungen als eine alte Vorhersage.
-- Sie ist global und im gleichen Tagesformat verfügbar.
-- Sie ist keine lokale Stationsmessung und kein perfekter Ground Truth.
-- Besonders für lokalen Niederschlag bleibt eine spätere DWD-Stationsanbindung fachlich wertvoll.
+- Der Proxy liegt näher an den analysierten Wetterbedingungen als eine alte Vorhersage.
+- Er ist global und im gleichen Tagesformat verfügbar.
+- Er ist keine lokale Stationsmessung und kein perfekter Ground Truth.
+- Ein Fallback-Dokument wird nie als DWD-Messung ausgegeben.
 
 ## Metriken
 
@@ -80,13 +80,16 @@ publicWeather/{locationId}/calibration/current
 
 Die Aggregation verwendet ein rollierendes Fenster von maximal 3.000 Score-Dokumenten. Das hält Firestore-Reads im kostenlosen Betrieb begrenzt und verhindert, dass sehr alte Modellversionen unbegrenzt dominieren.
 
-## Noch offen
+## Evidence-Status
 
-- DWD-Stationsdaten als zusätzliche lokale Referenz;
+Umgesetzt sind DWD-Stationsreferenz, MOSMIX-Challenger, Bias- und Abhängigkeitsparameter im Shadow-Modus, ein transparenter Fragility Index und ein gepaartes Out-of-Sample-Gate. Das Gate verlangt mindestens 30 unabhängige Tage und eine positive untere 95-%-Grenze der CRPS-Verbesserung.
+
+Offen bleiben:
+
 - saisonale und wetterlagenabhängige Auswertung;
-- echter Out-of-sample-Vergleich gegen die eingefrorene Gleichgewichts-Baseline;
 - Reliability-Diagramme für Regenwahrscheinlichkeiten;
-- Bias-Korrektur oder EMOS erst nach ausreichender Historie;
-- Drift-Erkennung, wenn Provider ihre Modelle ändern.
+- vollständige probabilistische Regenkalibrierung;
+- Drift-Erkennung, wenn Provider ihre Modelle ändern;
+- RADOLAN als zusätzliche flächige Niederschlagsreferenz.
 
-Komplexität allein ist kein Qualitätsbeweis. Eine neue Gewichtung bleibt nur aktiv, wenn sie in einem getrennten Testzeitraum besser als die gleichgewichtete Baseline ist.
+Komplexität allein ist kein Qualitätsbeweis. Eine neue Gewichtung darf nur nach einem getrennten Zukunftstest und explizitem Review die gleichgewichtete Baseline ersetzen.

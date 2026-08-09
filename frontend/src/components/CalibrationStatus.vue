@@ -16,7 +16,9 @@ const bucketLabels: Record<string, string> = {
     <div class="calibration-lead">
       <span>ISOBAR // Skill Engine</span>
       <strong>{{ calibration.status === 'active' ? 'Skill-Gewichte aktiv' : 'Lernphase aktiv' }}</strong>
-      <small>Referenzanalyse · keine Stationsmessung</small>
+      <small>{{ calibration.referenceKind === 'dwd-station'
+        ? 'DWD Stationsmessung · bevorzugte Referenz'
+        : 'Referenzanalyse · transparenter Proxy' }}</small>
     </div>
     <article>
       <span>Verifikationstage</span>

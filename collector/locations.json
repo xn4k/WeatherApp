@@ -6,7 +6,11 @@
     "country": "Deutschland",
     "latitude": 50.9991,
     "longitude": 7.0387,
+    "elevation": 52,
     "timezone": "Europe/Berlin",
+    "dwdStationId": "02667",
+    "mosmixStationId": "10513",
+    "mosmixStationName": "K\u00f6ln/Bonn",
     "enabled": true
   }
 ]

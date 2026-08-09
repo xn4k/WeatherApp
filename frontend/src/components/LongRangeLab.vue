@@ -6,6 +6,8 @@ import type { FusionDay, Outlook, OutlookModelDay, OutlookView } from '../types/
 import LongRangeChart from './LongRangeChart.vue'
 import CalibrationStatusCard from './CalibrationStatus.vue'
 import MethodLab from './MethodLab.vue'
+import EvidencePanel from './EvidencePanel.vue'
+import ClimateCalendar from './ClimateCalendar.vue'
 
 const props = defineProps<{ latitude: number; longitude: number }>()
 
@@ -342,6 +344,16 @@ onBeforeUnmount(() => request?.abort())
       />
 
 
+      <EvidencePanel
+        v-if="data.mode === 'ensemble'"
+        :outlook="data"
+      />
+      <ClimateCalendar
+        v-if="data.mode === 'ensemble'"
+        :latitude="latitude"
+        :longitude="longitude"
+        :outlook="data"
+      />
       <MethodLab :outlook="data" />
       <div class="model-cards">
         <article v-for="model in data.models" :key="model.id">

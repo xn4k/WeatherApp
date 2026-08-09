@@ -1,3 +1,15 @@
+import type {
+  CalibrationModelMetrics,
+  CalibrationWeights,
+  ClimateDay,
+  ClimateHistoryDay,
+  EvidenceProfile,
+  EvidenceShadow,
+  FragilityDay,
+  MosmixChallenger,
+  ReferenceProfile,
+} from './evidence'
+
 export type OutlookView = '16' | '30'
 
 export interface OutlookModelDay {
@@ -71,11 +83,14 @@ export interface RunStability {
 export interface CalibrationStatus {
   method: 'skill-calibration-v1.0.0'
   status: 'collecting' | 'active'
-  referenceKind: 'analysis-proxy'
+  referenceKind: 'dwd-station' | 'analysis-proxy'
   distinctDays: number
   scoredForecasts: number
   minimumDays: number
   activeBuckets: string[]
+  metricsByBucket?: Record<string, Record<string, CalibrationModelMetrics>>
+  weightsByBucket?: Record<string, CalibrationWeights>
+  evidence?: EvidenceProfile | null
   notice: string
 }
 
@@ -89,6 +104,18 @@ export interface Outlook {
   runStability?: RunStability
   mode: 'models' | 'ensemble'
   calibration?: CalibrationStatus | null
+  referenceProfile?: ReferenceProfile | null
+  climateToday?: ClimateDay | null
+  latestObservation?: ClimateHistoryDay | null
+  evidence?: EvidenceShadow | null
+  challengers?: { mosmix?: MosmixChallenger | null }
+  fragility?: {
+    method: 'forecast-fragility-v1.0.0'
+    status: 'transparent-index'
+    calibratedProbability: false
+    daily: FragilityDay[]
+    notice: string
+  }
   horizonDays: number
   models?: OutlookModel[]
   ensembles?: EnsembleModel[]

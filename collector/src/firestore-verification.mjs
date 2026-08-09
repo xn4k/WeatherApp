@@ -1,6 +1,7 @@
 import { FieldValue } from '@google-cloud/firestore'
 import { aggregateSkill, publicCalibration } from './calibration.mjs'
-import { completedReferenceDates, loadReferenceDays, REFERENCE_SOURCE } from './reference.mjs'
+import { completedReferenceDates } from './reference.mjs'
+import { bestReferences } from './reference-layer.mjs'
 import { scoreForecastRun } from './verification.mjs'
 
 const RECENT_RUN_LIMIT = 160
@@ -93,7 +94,7 @@ async function aggregateStoredScores(database, locationRef, now) {
     .get()
   const profile = {
     ...aggregateSkill(scores.docs.map((document) => document.data())),
-    referenceSource: REFERENCE_SOURCE,
+    referenceSource: 'dwd-cdc-with-analysis-proxy-fallback',
     updatedAt: now.toISOString(),
     scoreWindowLimit: SCORE_WINDOW_LIMIT,
   }
@@ -111,10 +112,10 @@ async function aggregateStoredScores(database, locationRef, now) {
 export async function updateVerification(
   database,
   location,
-  { now = new Date(), fetchImpl = fetch, backfillDays = 3 } = {},
+  { now = new Date(), fetchImpl = fetch, backfillDays = 3, referenceLayer = null } = {},
 ) {
   const dates = completedReferenceDates(location.timezone, now, backfillDays)
-  const references = await loadReferenceDays(location, dates, fetchImpl)
+  const references = await bestReferences(location, dates, referenceLayer, fetchImpl)
   const locationRef = database.collection('publicWeather').doc(location.id)
   await commitSets(database, references.map((reference) => ({
     reference: locationRef.collection('references').doc(reference.date),
