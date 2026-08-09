@@ -4,6 +4,7 @@ import { loadCalibration, updateVerification } from './firestore-verification.mj
 import { collectOpenMeteo } from './openmeteo.mjs'
 import { buildSnapshot, snapshotSummary } from './snapshot.mjs'
 import { prepareReferenceLayer } from './reference-layer.mjs'
+import { updateHistoricalBackfill } from './historical-backfill.mjs'
 
 const argumentsSet = new Set(process.argv.slice(2))
 const dryRun = argumentsSet.has('--dry-run')
@@ -47,6 +48,8 @@ async function main() {
       console.log(`[publish] ${path}`)
       const verification = await updateVerification(database, location, { referenceLayer })
       console.log(`[verify] ${JSON.stringify(verification)}`)
+      const backfill = await updateHistoricalBackfill(database, location)
+      console.log(`[backfill] ${JSON.stringify(backfill)}`)
     }
   }
 

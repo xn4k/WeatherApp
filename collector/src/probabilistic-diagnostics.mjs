@@ -1,4 +1,5 @@
 import { round } from './fusion.mjs'
+import { buildCrpsSkill } from './crps-skill.mjs'
 
 export const DIAGNOSTICS_VERSION = 'probabilistic-diagnostics-v1.0.0'
 
@@ -68,6 +69,7 @@ function brierSkill(samples) {
 }
 
 function systemDiagnostics(documents, systemId) {
+  const crpsSkill = buildCrpsSkill(documents, systemId)
   const scored = documents.flatMap((document) => {
     const score = document.systemScores?.[systemId]
     return score ? [{ document, score }] : []
@@ -84,6 +86,10 @@ function systemDiagnostics(documents, systemId) {
     samples: scored.length,
     temperature: {
       meanCrps: round(average(scored.map(({ score }) => score.temperatureCRPS)), 3),
+      climatologyCrps: Number.isFinite(crpsSkill.climatologyCrps) ? round(crpsSkill.climatologyCrps, 3) : null,
+      persistenceCrps: Number.isFinite(crpsSkill.persistenceCrps) ? round(crpsSkill.persistenceCrps, 3) : null,
+      crpsSkillClimatology: Number.isFinite(crpsSkill.crpsSkillClimatology) ? round(crpsSkill.crpsSkillClimatology, 3) : null,
+      crpsSkillPersistence: Number.isFinite(crpsSkill.crpsSkillPersistence) ? round(crpsSkill.crpsSkillPersistence, 3) : null,
       intervalCoverage80: intervalHits.length
         ? round(100 * intervalHits.filter(Boolean).length / intervalHits.length)
         : null,

@@ -9,6 +9,16 @@ import type {
   MosmixChallenger,
   ReferenceProfile,
 } from './evidence'
+import type {
+  CalibrationChallenger,
+  DataQuality,
+  ForecastAnalysis,
+  ForecastPassport,
+  ProbabilisticDiagnostics,
+  RadolanStatus,
+  RunMemory,
+} from './research'
+
 
 export type OutlookView = '16' | '30'
 
@@ -90,6 +100,7 @@ export interface CalibrationStatus {
   activeBuckets: string[]
   metricsByBucket?: Record<string, Record<string, CalibrationModelMetrics>>
   weightsByBucket?: Record<string, CalibrationWeights>
+  diagnostics?: ProbabilisticDiagnostics | null
   evidence?: EvidenceProfile | null
   notice: string
 }
@@ -101,6 +112,12 @@ export interface OutlookFusion {
 }
 
 export interface Outlook {
+  runMemory?: RunMemory | null
+  forecastPassport?: ForecastPassport | null
+  analysis?: ForecastAnalysis | null
+  dataQuality?: DataQuality | null
+  calibrationChallenger?: CalibrationChallenger | null
+  radolanStatus?: RadolanStatus | null
   runStability?: RunStability
   mode: 'models' | 'ensemble'
   calibration?: CalibrationStatus | null

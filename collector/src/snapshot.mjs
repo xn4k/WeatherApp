@@ -9,7 +9,9 @@ export function buildSnapshot(location, collected) {
     models: collected.models,
     fusion: collected.outlook.fusion,
     evidence: collected.outlook.evidence,
+    analysis: collected.outlook.analysis,
     challengers: collected.outlook.challengers,
+    calibrationChallenger: collected.outlook.calibrationChallenger,
   })
   const payloadHash = createHash('sha256').update(payload).digest('hex')
   return {

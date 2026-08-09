@@ -106,6 +106,14 @@ function weightedProbability(points, threshold) {
     : null
 }
 
+function weightedRank(points, observation) {
+  const valid = points.filter((point) => Number.isFinite(point.value) && point.weight > 0)
+  const total = valid.reduce((sum, point) => sum + point.weight, 0)
+  return total
+    ? valid.filter((point) => point.value <= observation).reduce((sum, point) => sum + point.weight, 0) / total
+    : null
+}
+
 function scoreSystemDay(day, temperaturePoints, precipitationPoints, reference) {
   if (!day || !Number.isFinite(day.temperatureP50) || !Number.isFinite(reference.temperatureMean)) return null
   const probability1mm = Number.isFinite(day.rainProbability1mm)
@@ -121,6 +129,7 @@ function scoreSystemDay(day, temperaturePoints, precipitationPoints, reference) 
     temperatureP90: day.temperatureP90,
     temperatureAbsoluteError: round(Math.abs(day.temperatureP50 - reference.temperatureMean), 3),
     temperatureCRPS: roundedMetric(weightedCRPS(temperaturePoints, reference.temperatureMean), 3),
+    temperatureRankFraction: roundedMetric(weightedRank(temperaturePoints, reference.temperatureMean), 4),
     temperatureIntervalHit: reference.temperatureMean >= day.temperatureP10 && reference.temperatureMean <= day.temperatureP90,
     precipitationP50: day.precipitationP50 ?? null,
     precipitationAbsoluteError: hasPrecipitationReference && Number.isFinite(day.precipitationP50)

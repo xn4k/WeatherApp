@@ -3,6 +3,9 @@ import { summarizeModel } from './fusion.mjs'
 import { buildSkillFusion } from './skill-fusion.mjs'
 import { buildShadowEvidence } from './evidence-engine.mjs'
 import { loadMosmix } from './mosmix.mjs'
+import { buildForecastAnalysis } from './forecast-analysis.mjs'
+import { assessDataQuality } from './data-quality.mjs'
+import { buildCalibrationChallenger } from './calibration-challenger.mjs'
 
 const ENSEMBLE_URL = 'https://ensemble-api.open-meteo.com/v1/ensemble'
 const SEASONAL_URL = 'https://seasonal-api.open-meteo.com/v1/seasonal'
@@ -121,6 +124,14 @@ export async function collectOpenMeteo(location, fetchImpl = fetch, calibration 
   } catch (error) {
     warnings.push(`DWD MOSMIX nicht verfuegbar: ${error.message}`)
   }
+  const analysis = buildForecastAnalysis(models)
+  const dataQuality = assessDataQuality(models, MODEL_DEFINITIONS, warnings, new Date().toISOString())
+  const calibrationChallenger = buildCalibrationChallenger(
+    fusion,
+    calibration?.diagnostics,
+    new Date().toISOString(),
+    location.timezone,
+  )
   return {
     models,
     outlook: {
@@ -130,8 +141,11 @@ export async function collectOpenMeteo(location, fetchImpl = fetch, calibration 
       fusion,
       evidence,
       challengers: mosmix ? { mosmix } : {},
+      analysis,
+      dataQuality,
       calibration: calibration ? publicCalibration(calibration) : null,
       notice: 'P10 bis P90 markieren den modellierten Wahrscheinlichkeitsraum. Mit wachsendem Horizont sinken Modellzahl und räumliche Präzision.',
+      calibrationChallenger,
       warnings,
       refreshedAt: new Date().toISOString(),
       source: 'firebase',

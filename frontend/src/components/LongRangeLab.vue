@@ -8,6 +8,7 @@ import CalibrationStatusCard from './CalibrationStatus.vue'
 import MethodLab from './MethodLab.vue'
 import EvidencePanel from './EvidencePanel.vue'
 import ClimateCalendar from './ClimateCalendar.vue'
+import ForecastResearchLab from './ForecastResearchLab.vue'
 
 const props = defineProps<{ latitude: number; longitude: number }>()
 
@@ -345,6 +346,10 @@ onBeforeUnmount(() => request?.abort())
 
 
       <EvidencePanel
+        v-if="data.mode === 'ensemble'"
+        :outlook="data"
+      />
+      <ForecastResearchLab
         v-if="data.mode === 'ensemble'"
         :outlook="data"
       />

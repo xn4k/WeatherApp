@@ -141,6 +141,13 @@ export async function loadDwdObservations(
   { fetchImpl = fetch, includeHistorical = false } = {},
 ) {
   const stations = parseStationCatalog(await fetchText(CATALOG_URL, fetchImpl))
+  const recentListing = await fetchText(`${BASE}/recent/`, fetchImpl)
+  const availableStationIds = new Set(
+    [...recentListing.matchAll(/tageswerte_KL_(\d{5})_akt\.zip/g)].map((match) => match[1]),
+  )
+  for (let index = stations.length - 1; index >= 0; index -= 1) {
+    if (!availableStationIds.has(stations[index].id)) stations.splice(index, 1)
+  }
   const station = selectStation(location, stations)
   const recentName = `tageswerte_KL_${station.id}_akt.zip`
   const recentBytes = await fetchBytes(`${BASE}/recent/${recentName}`, fetchImpl)
