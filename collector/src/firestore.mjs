@@ -1,5 +1,6 @@
 import { FieldValue, Firestore } from '@google-cloud/firestore'
 import { compareFusionRuns } from './stability.mjs'
+import { attachFragility } from './evidence-engine.mjs'
 
 function serviceAccountOptions() {
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON
@@ -37,9 +38,10 @@ export async function publishSnapshot(database, snapshot) {
     previous.data()?.latestOutlook,
     snapshot.outlook,
   )
-  const outlook = runStability
+  const outlookWithStability = runStability
     ? { ...snapshot.outlook, runStability }
     : snapshot.outlook
+  const outlook = attachFragility(outlookWithStability, runStability)
   const batch = database.batch()
 
   batch.set(locationRef, {

@@ -3,6 +3,7 @@ import { createFirestore, publishSnapshot } from './firestore.mjs'
 import { loadCalibration, updateVerification } from './firestore-verification.mjs'
 import { collectOpenMeteo } from './openmeteo.mjs'
 import { buildSnapshot, snapshotSummary } from './snapshot.mjs'
+import { prepareReferenceLayer } from './reference-layer.mjs'
 
 const argumentsSet = new Set(process.argv.slice(2))
 const dryRun = argumentsSet.has('--dry-run')
@@ -34,13 +35,17 @@ async function main() {
   for (const location of locations) {
     console.log(`[collect] ${location.name}: Modelle werden geladen`)
     const calibration = database ? await loadCalibration(database, location.id) : null
-    const collected = await collectOpenMeteo(location, fetch, calibration)
+    const [referenceLayer, collected] = await Promise.all([
+      prepareReferenceLayer(database, location),
+      collectOpenMeteo(location, fetch, calibration),
+    ])
+    console.log(`[reference] ${referenceLayer.referenceProfile.status}; ${referenceLayer.calendarDays} Kalendertage aktualisiert`)
     const snapshot = buildSnapshot(location, collected)
     console.log(JSON.stringify(snapshotSummary(snapshot), null, 2))
     if (database) {
       const path = await publishSnapshot(database, snapshot)
       console.log(`[publish] ${path}`)
-      const verification = await updateVerification(database, location)
+      const verification = await updateVerification(database, location, { referenceLayer })
       console.log(`[verify] ${JSON.stringify(verification)}`)
     }
   }

@@ -1,16 +1,10 @@
 import { doc, getDoc, getFirestore } from 'firebase/firestore/lite'
 import { getFirebaseApp } from '../../lib/firebase'
 import type { Outlook } from '../../types/outlook'
+import { firebaseLocationId } from './location-id'
 
 const FRESH_FOR_MS = 8 * 60 * 60_000
 
-function coordinateToken(value: number) {
-  return value.toFixed(4).replace('-', 'm').replace('.', 'p')
-}
-
-export function firebaseLocationId(latitude: number, longitude: number) {
-  return `geo_${coordinateToken(latitude)}_${coordinateToken(longitude)}`
-}
 
 function isOutlook(value: unknown): value is Outlook {
   if (!value || typeof value !== 'object') return false
@@ -37,11 +31,18 @@ export async function getPublishedOutlook(
     firebaseLocationId(latitude, longitude),
   )
   const snapshot = await getDoc(reference)
-  const outlook = snapshot.data()?.latestOutlook
+  const published = snapshot.data()
+  const outlook = published?.latestOutlook
   if (!isOutlook(outlook)) return null
   const age = Date.now() - Date.parse(outlook.refreshedAt)
   return {
-    outlook: { ...outlook, source: 'firebase' },
+    outlook: {
+      ...outlook,
+      referenceProfile: published?.referenceProfile ?? null,
+      climateToday: published?.climateToday ?? null,
+      latestObservation: published?.latestObservation ?? null,
+      source: 'firebase',
+    },
     fresh: Number.isFinite(age) && age >= 0 && age <= FRESH_FOR_MS,
   }
 }

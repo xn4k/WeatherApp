@@ -10,9 +10,11 @@
     "collect": "node src/cli.mjs",
     "collect:dry": "node src/cli.mjs --dry-run",
     "test": "node --test",
-    "check": "node --check src/cli.mjs && node --check src/openmeteo.mjs && node --check src/fusion.mjs && node --check src/skill-fusion.mjs && node --check src/reference.mjs && node --check src/calibration.mjs && node --check src/stability.mjs && node --check src/verification.mjs && node --check src/firestore.mjs && node --check src/firestore-verification.mjs"
+    "check": "node --check src/cli.mjs && node --check src/openmeteo.mjs && node --check src/fusion.mjs && node --check src/skill-fusion.mjs && node --check src/reference.mjs && node --check src/dwd-observations.mjs && node --check src/climate.mjs && node --check src/reference-layer.mjs && node --check src/mosmix.mjs && node --check src/evidence-engine.mjs && node --check src/calibration.mjs && node --check src/stability.mjs && node --check src/verification.mjs && node --check src/firestore.mjs && node --check src/firestore-verification.mjs"
   },
   "dependencies": {
-    "@google-cloud/firestore": "8.7.1"
+    "@google-cloud/firestore": "8.7.1",
+    "fast-xml-parser": "^5.10.1",
+    "fflate": "^0.8.3"
   }
 }

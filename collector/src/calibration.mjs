@@ -1,4 +1,5 @@
 import { round } from './fusion.mjs'
+import { aggregateEvidence } from './evidence-engine.mjs'
 
 export const CALIBRATION_VERSION = 'skill-calibration-v1.0.0'
 export const MINIMUM_VERIFICATION_DAYS = 14
@@ -126,16 +127,23 @@ export function aggregateSkill(scoreDocuments, configuration = {}) {
     .filter(([, value]) => value.active)
     .map(([bucket]) => bucket)
 
+  const evidence = aggregateEvidence(scoreDocuments)
+  const referenceKinds = new Set(scoreDocuments.map((document) => document.reference?.kind).filter(Boolean))
+  const referenceKind = referenceKinds.has('station-observation')
+    ? 'dwd-station'
+    : 'analysis-proxy'
+
   return {
     method: CALIBRATION_VERSION,
     status: activeBuckets.length ? 'active' : 'collecting',
-    referenceKind: 'analysis-proxy',
+    referenceKind,
     distinctDays: allDates.size,
     scoredForecasts,
     minimumDays: options.minimumDays,
     activeBuckets,
     metricsByBucket,
     weightsByBucket,
+    evidence,
     notice: activeBuckets.length
       ? 'Skill-Gewichte sind nach Vorhersagehorizont getrennt, zur Gleichgewichtung hin geschrumpft und auf 0,5 bis 2,0 begrenzt.'
       : `ISOBAR sammelt Verifikationstage. Bis mindestens ${options.minimumDays} verschiedene Tage pro Modell und Horizont vorliegen, bleibt die Fusion gleichgewichtet.`,
@@ -152,6 +160,9 @@ export function publicCalibration(profile) {
     scoredForecasts: profile.scoredForecasts,
     minimumDays: profile.minimumDays,
     activeBuckets: profile.activeBuckets,
+    metricsByBucket: profile.metricsByBucket ?? {},
+    weightsByBucket: profile.weightsByBucket ?? {},
+    evidence: profile.evidence ?? null,
     notice: profile.notice,
   }
 }

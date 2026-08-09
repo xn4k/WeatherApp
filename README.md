@@ -160,6 +160,19 @@ verwertbaren Ensembledaten vorhanden, wird keine Fusion ausgegeben. Im
 Go-Modus kann bei einem vollständigen Aktualisierungsfehler zusätzlich der
 letzte abgelaufene Cache-Stand als `stale` zurückgegeben werden.
 
+### ISOBAR Fusion – Evidence-Stufe
+
+Für zentral überwachte Orte ergänzt der GitHub-Actions-Collector die Rohfusion:
+
+- DWD-CDC-Stationsmessungen als bevorzugte Referenz;
+- DWD MOSMIX als separaten Punkt-Challenger;
+- einen historischen Klimakalender für jeden Monatstag;
+- lokale Bias- und Fehlerabhängigkeitsparameter im Shadow-Modus;
+- einen erklärbaren Fragility Index;
+- ein gepaartes Out-of-Sample-Gate mit mindestens 30 unabhängigen Zukunftstagen.
+
+Der Shadow-Challenger verändert die Live-Prognose nicht. Auch ein positives Gate löst keine automatische Promotion aus. Methodik und Grenzen stehen in der [Evidence-Engine-Dokumentation](docs/EVIDENCE_ENGINE.md).
+
 ### Interaktion und Barrierearmut
 
 - Maus- und Touch-Navigation
@@ -241,8 +254,7 @@ Firebase führt in diesem Modus **keinen Wetterserver** aus. Firebase Hosting
 liefert HTML, CSS und JavaScript. Danach ruft der Browser Open-Meteo direkt
 auf. Das funktioniert, weil Open-Meteo Browserzugriffe per CORS erlaubt.
 
-Firebase Core ist initialisiert. Auth und Firestore sind noch nicht aktiviert
-und werden aktuell nicht benötigt. Analytics ist standardmäßig deaktiviert.
+Firestore ist als öffentlich lesbarer, nur vom Admin-Collector beschreibbarer Forecast-Speicher aktiv. Auth wird weiterhin nicht benötigt. Firebase Analytics ist standardmäßig deaktiviert.
 
 ## Warum beide Wege sinnvoll sind
 
@@ -328,7 +340,8 @@ Hier werden konkrete Adapter und Services zusammengesteckt. Nur dieser
 - Kurzfristprognose: 10 Minuten `sessionStorage`
 - Langfristprognose: 30 Minuten `sessionStorage`
 - Der Cache gilt nur für den jeweiligen Browser-Tab.
-- Es existiert kein gemeinsamer zentraler Cache.
+- Für konfigurierte Orte liegen zentrale, versionierte Läufe in Firestore.
+- Nicht überwachte Orte verwenden weiterhin nur den lokalen Browser-Cache.
 - Die großen 16- und 30-Tage-Datensätze werden erst auf Benutzeraktion geladen.
 
 ## Projektstruktur
@@ -537,21 +550,11 @@ So vermeiden wir leere Repository-Schichten und unnötige Tabellen.
 
 ### Wissenschaftliche Roadmap
 
-Die serverlose Forschungsstufe speichert versionierte Prognose-Snapshots und
-Run-to-run-Verschiebungen bereits in Firestore. Nach Tagesende ordnet der
-Collector historische Referenzanalysen den alten Prognosen zu und berechnet
-MAE, CRPS sowie Brier Scores getrennt nach Vorhersagehorizont.
+Die serverlose Forschungsstufe speichert versionierte Prognose-Snapshots und Run-to-run-Verschiebungen in Firestore. Nach Tagesende bevorzugt der Collector DWD-Stationsmessungen und nutzt nur bei Datenlücken den klar markierten Analysis-Proxy. Er berechnet MAE, CRPS und Brier Scores getrennt nach Vorhersagehorizont.
 
-Ab 14 verschiedenen Verifikationstagen dürfen konservativ geschrumpfte und
-begrenzte Skill-Gewichte aktiv werden. Bis dahin bleibt jedes Modell gleich
-gewichtet. Der Referenzdatensatz ist ein global verfügbarer `analysis-proxy`,
-keine lokale Stationsmessung; die empirischen Regenwahrscheinlichkeiten sind
-auch mit Skill-Gewichten noch nicht vollständig kalibriert.
+Ab 14 verschiedenen Verifikationstagen dürfen konservativ geschrumpfte, begrenzte Skill-Gewichte aktiv werden. Ein separater Evidence-Shadow untersucht lokalen Temperatur-Bias, Fehlerabhängigkeit und Intervall-Coverage, verändert den Live-Champion aber nicht.
 
-Offen bleiben eine DWD-Stationsanbindung, saisonale Auswertung, ein echter
-Out-of-sample-Test gegen die eingefrorene Gleichgewichts-Baseline und erst
-danach mögliche Bias-Korrektur oder EMOS. Details stehen in
-[Forecast-Verifikation und Skill-Gewichte](docs/VERIFICATION.md).
+Das Out-of-Sample-Gate benötigt mindestens 30 unabhängige Zukunftstage und eine positive untere 95-%-Grenze der gepaarten CRPS-Verbesserung. Bis diese reale Zeit verstrichen ist, bleibt die Baseline aktiv. Offen sind unter anderem RADOLAN, vollständige Regenkalibrierung, saisonale Auswertung und Drift-Erkennung. Details stehen in der [Evidence-Engine-Dokumentation](docs/EVIDENCE_ENGINE.md).
 
 ## Firebase Spark: Möglichkeiten und Grenzen
 
@@ -640,7 +643,7 @@ Invoke-WebRequest https://isobar-7d8eb.web.app
 - Das aktuelle Design ist eine Wetter-App, noch keine PWA.
 - Es gibt noch keine amtlichen Unwetterwarnungen.
 - Die zentrale Prognosehistorie wird aktuell nur für konfigurierte Orte aufgebaut.
-- Historische Referenzen sind Analyse-Näherungen und noch keine DWD-Stationsmessungen.
+- DWD-Stationen sind punktuell; fehlende Messtage nutzen einen markierten Analysis-Proxy.
 - Open-Meteo ist im kostenlosen Modus ohne Verfügbarkeitsgarantie.
 - Modellreichweiten unterscheiden sich und können sich providerseitig ändern.
 - PostgreSQL ist vorbereitet, aber fachlich noch nicht angeschlossen.

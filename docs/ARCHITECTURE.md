@@ -92,7 +92,10 @@ Bereits umgesetzt:
 - Firestore-Snapshots mit gesperrten Browser-Schreibrechten;
 - GitHub-Actions-Zeitplan alle sechs Stunden;
 - Run-to-run-Metriken und Vue-Anzeige;
-- historische Referenzanalyse als ausdrücklich markierter `analysis-proxy`;
+- DWD-CDC-Stationsmessungen als bevorzugte Referenz mit markiertem Analysis-Proxy-Fallback;
+- DWD MOSMIX als separater, stationsoptimierter Challenger;
+- Klimakalender 1991–2020 plus verfügbare Stationshistorie;
+- Evidence-Shadow, Fragility Index und gepaartes Out-of-Sample-Gate;
 - idempotente MAE-, CRPS- und Brier-Verifikation nach Vorhersagehorizont;
 - konservative Skill-Gewichte ab 14 verschiedenen Verifikationstagen;
 - sichtbarer Lern- und Aktivstatus im 30-Tage-Labor;
@@ -100,22 +103,21 @@ Bereits umgesetzt:
 
 Noch nicht als fertige Wissenschaft behauptet:
 
-- die Referenzanalyse ist keine lokale Stationsmessung;
-- Skill-Gewichtung ist noch keine vollständige Wahrscheinlichkeitskalibrierung;
-- noch keine getrennte Out-of-sample-Freigabe gegen die eingefrorene Baseline;
-- noch keine EMOS-Kalibrierung;
-- noch keine belastbare Aussage, dass ISOBAR genauer als ein Einzelmodell ist.
+- Skill-Gewichtung und Fragility sind keine vollständige Wahrscheinlichkeitskalibrierung;
+- das Out-of-Sample-Gate braucht reale zukünftige Beobachtungstage;
+- RADOLAN, Reliability-Diagramme, EMOS und Drift-Erkennung sind noch offen;
+- es gibt noch keine belastbare Aussage, dass ISOBAR genauer als ein Einzelmodell ist.
 
 Methodik und Schutzregeln stehen in [Forecast-Verifikation und Skill-Gewichte](VERIFICATION.md).
 
 ## Sinnvolle Ausbaustufen
 
-1. Mehrere feste Standorte sammeln und Datenlücken überwachen.
-2. Beobachtungen aus einer klar dokumentierten Quelle importieren.
-3. Gütemaße getrennt nach Ort, Saison und Vorhersagehorizont berechnen.
-4. Datengetriebene Gewichte zunächst nur im Schattenmodus anzeigen.
-5. Gegen die gleichgewichtete Basis testen und nur echte Verbesserungen aktivieren.
-6. EMOS oder Quantile Mapping mit sauberem Trainings- und Testzeitraum ergänzen.
+1. Weitere feste Standorte sammeln und Datenlücken überwachen.
+2. RADOLAN als flächige Niederschlagsreferenz ergänzen.
+3. Gütemaße nach Ort, Saison und Wetterlage aufteilen.
+4. Reliability-Diagramme und probabilistische Regenkalibrierung ergänzen.
+5. Das Shadow-Gate über reale Zukunftstage beobachten und nur echte Verbesserungen reviewen.
+6. Erst danach EMOS oder Quantile Mapping als neuen versionierten Challenger testen.
 7. Später optionale Favoriten, Benachrichtigungen und Nutzerkonten hinzufügen.
 
 Die fachlich wichtigste Regel bleibt: Ein komplizierter Algorithmus ist nicht automatisch ein besserer Algorithmus. Jede neue Methode muss gegen eine einfache, eingefrorene Baseline gewinnen.
