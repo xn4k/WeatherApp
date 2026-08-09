@@ -53,7 +53,7 @@ async function modelOutlook(
     latitude: latitude.toFixed(5),
     longitude: longitude.toFixed(5),
     models: 'icon_seamless,ecmwf_ifs025,ecmwf_aifs025_single,gfs_seamless',
-    daily: 'temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum',
+    daily: 'temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,relative_humidity_2m_mean,dew_point_2m_mean,wind_speed_10m_mean,precipitation_probability_max,precipitation_sum',
     forecast_days: 16,
     timezone: 'auto',
   }, signal)
@@ -73,6 +73,11 @@ async function modelOutlook(
     }
     const probabilities = numberSeries(daily, `precipitation_probability_max_${definition.suffix}`)
     const precipitation = numberSeries(daily, `precipitation_sum_${definition.suffix}`)
+    const apparentMinimums = numberSeries(daily, 'apparent_temperature_min_' + definition.suffix)
+    const apparentMaximums = numberSeries(daily, 'apparent_temperature_max_' + definition.suffix)
+    const humidityMeans = numberSeries(daily, 'relative_humidity_2m_mean_' + definition.suffix)
+    const dewPointMeans = numberSeries(daily, 'dew_point_2m_mean_' + definition.suffix)
+    const windSpeedMeans = numberSeries(daily, 'wind_speed_10m_mean_' + definition.suffix)
     const points = dates(daily).flatMap((date, index) => {
       const temperatureMin = minimums[index]
       const temperatureMax = maximums[index]
@@ -82,6 +87,11 @@ async function modelOutlook(
         temperatureMin,
         temperatureMax,
         precipitationProbability: probabilities[index] ?? null,
+        apparentTemperatureMin: apparentMinimums[index] ?? null,
+        apparentTemperatureMax: apparentMaximums[index] ?? null,
+        relativeHumidityMean: humidityMeans[index] ?? null,
+        dewPointMean: dewPointMeans[index] ?? null,
+        windSpeedMean: windSpeedMeans[index] ?? null,
         precipitation: precipitation[index] ?? 0,
       }]
     })
@@ -133,6 +143,11 @@ interface EnsembleMemberDay {
   date: string
   temperature: number[]
   precipitation: number[]
+  apparentTemperature: number[]
+  apparentTemperatureMax: number[]
+  relativeHumidity: number[]
+  dewPoint: number[]
+  windSpeed: number[]
 }
 
 interface EnsembleResult {
@@ -181,6 +196,15 @@ function buildFusion(results: EnsembleResult[]): OutlookFusion {
     const precipitationGroups = activeDays
       .map((day) => day.precipitation)
       .filter((values) => values.length > 0)
+    const apparentTemperatureGroups = activeDays.map((day) => day.apparentTemperature).filter((values) => values.length > 0)
+    const apparentTemperatureMaxGroups = activeDays.map((day) => day.apparentTemperatureMax).filter((values) => values.length > 0)
+    const relativeHumidityGroups = activeDays.map((day) => day.relativeHumidity).filter((values) => values.length > 0)
+    const dewPointGroups = activeDays.map((day) => day.dewPoint).filter((values) => values.length > 0)
+    const windSpeedGroups = activeDays.map((day) => day.windSpeed).filter((values) => values.length > 0)
+    const optionalMedian = (groups: number[][]) => (
+      groups.length ? weightedQuantile(groups, 0.5) : null
+    )
+
     return [{
       date,
       temperatureP10: weightedQuantile(temperatureGroups, 0.1),
@@ -193,6 +217,11 @@ function buildFusion(results: EnsembleResult[]): OutlookFusion {
       precipitationP90: weightedQuantile(precipitationGroups, 0.9),
       rainProbability1mm: balancedProbability(precipitationGroups, 1),
       rainProbability10mm: balancedProbability(precipitationGroups, 10),
+      apparentTemperatureP50: optionalMedian(apparentTemperatureGroups),
+      apparentTemperatureMaxP50: optionalMedian(apparentTemperatureMaxGroups),
+      relativeHumidityP50: optionalMedian(relativeHumidityGroups),
+      dewPointP50: optionalMedian(dewPointGroups),
+      windSpeedP50: optionalMedian(windSpeedGroups),
       modelCount: activeDays.length,
       memberCount: temperatureGroups.reduce((sum, values) => sum + values.length, 0),
     }]
@@ -214,12 +243,17 @@ async function ensembleModel(
     latitude: latitude.toFixed(5),
     longitude: longitude.toFixed(5),
     models: definition.model,
-    daily: 'temperature_2m_mean,precipitation_sum',
+    daily: 'temperature_2m_mean,precipitation_sum,apparent_temperature_mean,apparent_temperature_max,relative_humidity_2m_mean,dew_point_2m_mean,wind_speed_10m_mean',
     forecast_days: definition.forecastDays,
     timezone: 'auto',
   }, signal)
   const temperatures = memberSeries(daily, 'temperature_2m_mean')
   const precipitation = memberSeries(daily, 'precipitation_sum')
+  const apparentTemperatures = memberSeries(daily, 'apparent_temperature_mean')
+  const apparentTemperatureMaximums = memberSeries(daily, 'apparent_temperature_max')
+  const relativeHumidity = memberSeries(daily, 'relative_humidity_2m_mean')
+  const dewPoints = memberSeries(daily, 'dew_point_2m_mean')
+  const windSpeeds = memberSeries(daily, 'wind_speed_10m_mean')
   if (!temperatures.length) throw new Error(`${definition.short} liefert keine Ensembleläufe.`)
   const members = dates(daily).flatMap<EnsembleMemberDay>((date, index) => {
     const temperatureValues = valuesAt(temperatures, index)
@@ -228,6 +262,11 @@ async function ensembleModel(
       date,
       temperature: temperatureValues,
       precipitation: valuesAt(precipitation, index),
+      apparentTemperature: valuesAt(apparentTemperatures, index),
+      apparentTemperatureMax: valuesAt(apparentTemperatureMaximums, index),
+      relativeHumidity: valuesAt(relativeHumidity, index),
+      dewPoint: valuesAt(dewPoints, index),
+      windSpeed: valuesAt(windSpeeds, index),
     }]
   })
   const points = members.map<EnsembleDay>((day) => ({
@@ -235,6 +274,11 @@ async function ensembleModel(
     temperatureMedian: round1(quantile(day.temperature, 0.5)),
     temperatureP10: round1(quantile(day.temperature, 0.1)),
     temperatureP90: round1(quantile(day.temperature, 0.9)),
+    apparentTemperatureMedian: day.apparentTemperature.length ? round1(quantile(day.apparentTemperature, 0.5)) : null,
+    apparentTemperatureMaxMedian: day.apparentTemperatureMax.length ? round1(quantile(day.apparentTemperatureMax, 0.5)) : null,
+    relativeHumidityMedian: day.relativeHumidity.length ? round1(quantile(day.relativeHumidity, 0.5)) : null,
+    dewPointMedian: day.dewPoint.length ? round1(quantile(day.dewPoint, 0.5)) : null,
+    windSpeedMedian: day.windSpeed.length ? round1(quantile(day.windSpeed, 0.5)) : null,
     precipitationMedian: round1(quantile(day.precipitation, 0.5)),
     precipitationP10: round1(quantile(day.precipitation, 0.1)),
     precipitationP90: round1(quantile(day.precipitation, 0.9)),

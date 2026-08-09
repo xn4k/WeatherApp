@@ -54,6 +54,11 @@ export function parseEnsembleDaily(definition, daily) {
   const dates = Array.isArray(daily.time) ? daily.time : []
   const temperatures = memberSeries(daily, 'temperature_2m_mean')
   const precipitation = memberSeries(daily, 'precipitation_sum')
+  const apparentTemperatures = memberSeries(daily, 'apparent_temperature_mean')
+  const apparentTemperatureMaximums = memberSeries(daily, 'apparent_temperature_max')
+  const relativeHumidity = memberSeries(daily, 'relative_humidity_2m_mean')
+  const dewPoints = memberSeries(daily, 'dew_point_2m_mean')
+  const windSpeeds = memberSeries(daily, 'wind_speed_10m_mean')
   if (!temperatures.length) throw new Error(`${definition.short} liefert keine Ensembleläufe.`)
 
   const parsedDays = dates.flatMap((date, index) => {
@@ -63,6 +68,11 @@ export function parseEnsembleDaily(definition, daily) {
       date,
       temperatureMembers,
       precipitationMembers: valuesAt(precipitation, index),
+      apparentTemperatureMembers: valuesAt(apparentTemperatures, index),
+      apparentTemperatureMaxMembers: valuesAt(apparentTemperatureMaximums, index),
+      relativeHumidityMembers: valuesAt(relativeHumidity, index),
+      dewPointMembers: valuesAt(dewPoints, index),
+      windSpeedMembers: valuesAt(windSpeeds, index),
     }]
   })
   if (!parsedDays.length) throw new Error(`${definition.short} liefert keine nutzbaren Tage.`)
@@ -79,7 +89,15 @@ export function parseEnsembleDaily(definition, daily) {
 }
 
 export async function loadModel(definition, location, fetchImpl = fetch) {
-  const dailyVariables = 'temperature_2m_mean,precipitation_sum'
+  const dailyVariables = [
+    'temperature_2m_mean',
+    'precipitation_sum',
+    'apparent_temperature_mean',
+    'apparent_temperature_max',
+    'relative_humidity_2m_mean',
+    'dew_point_2m_mean',
+    'wind_speed_10m_mean',
+  ].join(',')
   const url = queryURL(definition.endpoint, {
     latitude: location.latitude.toFixed(5),
     longitude: location.longitude.toFixed(5),

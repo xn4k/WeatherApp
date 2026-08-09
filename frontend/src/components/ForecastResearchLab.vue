@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import type { Outlook } from '../types/outlook'
+import MetricHelp from './MetricHelp.vue'
 
 const props = defineProps<{ outlook: Outlook }>()
 const selectedDate = ref(props.outlook.fusion?.daily[1]?.date ?? props.outlook.fusion?.daily[0]?.date ?? '')
@@ -62,6 +63,11 @@ function scenarioRange(scenario: NonNullable<typeof activeWindow.value>['scenari
     <div class="variance-grid">
       <article>
         <span>Struktur-Dissens</span>
+        <MetricHelp
+          title="Was bedeutet Struktur-Dissens?"
+          text="Dieser Anteil zeigt, wie viel der vorhandenen Gesamtvarianz durch Unterschiede zwischen den Modellmitteln entsteht."
+          caution="Varianzquelle, keine Fehlerwahrscheinlichkeit."
+        />
         <strong>{{ value(uncertainty?.temperature.betweenShare, 0) }}<small>%</small></strong>
         <i><b :style="{ width: `${uncertainty?.temperature.betweenShare ?? 0}%` }"></b></i>
         <p>Unterschiede zwischen Modellmitteln</p>
@@ -69,18 +75,34 @@ function scenarioRange(scenario: NonNullable<typeof activeWindow.value>['scenari
       <article>
         <span>Ensemble-Streuung</span>
         <strong>{{ value(uncertainty?.temperature.withinShare, 0) }}<small>%</small></strong>
+        <MetricHelp
+          title="Sind 99 % gleich 99 % ungenau?"
+          text="Nein. 99 % bedeutet: Fast die gesamte vorhandene Varianz liegt zwischen Membern innerhalb der Modelle. Der Wert sagt noch nichts &uuml;ber die absolute Breite oder die Fehlerquote."
+          formula="innerhalb-Modell-Varianz / Gesamtvarianz"
+          caution="Weder Fehlerquote noch Eintrittswahrscheinlichkeit."
+        />
         <i><b :style="{ width: `${uncertainty?.temperature.withinShare ?? 0}%` }"></b></i>
         <p>Unsicherheit innerhalb der Modelle</p>
       </article>
       <article>
         <span>Laufgedächtnis</span>
         <strong>{{ memory?.state ?? 'sammelt' }}</strong>
+        <MetricHelp
+          title="Was bedeutet stable?"
+          text="Der j&uuml;ngste P50-Sprung liegt innerhalb von plus/minus 20 % der zuvor typischen Laufverschiebung. Es gibt damit kein klares Konvergenz- oder Divergenzsignal."
+          caution="Stable bedeutet nicht sicher."
+        />
         <p>{{ memory?.runCount ?? outlook.runMemory?.runCount ?? 1 }} Läufe · {{ memory?.flipFlopCount ?? 0 }} Richtungswechsel · Δ {{ value(memory?.latestShift) }} K</p>
       </article>
       <article>
         <span>RADOLAN Fläche</span>
         <strong>{{ outlook.radolanStatus?.status ?? 'sammelt' }}</strong>
         <p>{{ outlook.radolanStatus?.references ?? 0 }} Tagesreferenzen im letzten Lauf</p>
+        <MetricHelp
+          title="Was pr&uuml;ft RADOLAN?"
+          text="RADOLAN liefert fl&auml;chige Niederschlagsreferenzen des DWD. ISOBAR nutzt sie zur sp&auml;teren Verifikation, nicht um den aktuellen Forecast heimlich umzuschreiben."
+          caution="Messreferenz f&uuml;r vergangene Tage."
+        />
       </article>
     </div>
 
@@ -142,6 +164,8 @@ header p:not(.eyebrow), .variance-grid p, .scenario-grid p, .evidence-row p, .me
 .variance-grid article:last-child, .evidence-row article:last-child { border-right: 0; }
 .variance-grid strong { display: block; margin: .7rem 0 .45rem; font: 400 1.4rem var(--mono); text-transform: capitalize; }
 .variance-grid strong small, .scenario-grid strong small { margin-left: .25rem; color: var(--muted); font-size: .55rem; }
+.variance-grid article { position: relative; }
+.variance-grid article > .metric-help { position: absolute; top: .9rem; right: .9rem; }
 .variance-grid article > i { display: block; height: .25rem; margin-bottom: .5rem; background: var(--line); }
 .variance-grid article > i b { display: block; height: 100%; background: var(--cyan); }
 .window-tabs { display: flex; border-bottom: 1px solid var(--line); }

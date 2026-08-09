@@ -26,6 +26,11 @@ export interface OutlookModelDay {
   date: string
   temperatureMin: number
   temperatureMax: number
+  apparentTemperatureMin?: number | null
+  apparentTemperatureMax?: number | null
+  relativeHumidityMean?: number | null
+  dewPointMean?: number | null
+  windSpeedMean?: number | null
   precipitationProbability: number | null
   precipitation: number
 }
@@ -43,6 +48,11 @@ export interface EnsembleDay {
   temperatureMedian: number
   temperatureP10: number
   temperatureP90: number
+  apparentTemperatureMedian?: number | null
+  apparentTemperatureMaxMedian?: number | null
+  relativeHumidityMedian?: number | null
+  dewPointMedian?: number | null
+  windSpeedMedian?: number | null
   precipitationMedian: number
   precipitationP10: number
   precipitationP90: number
@@ -68,6 +78,11 @@ export interface FusionDay {
   precipitationP90: number
   rainProbability1mm: number
   rainProbability10mm: number
+  apparentTemperatureP50?: number | null
+  apparentTemperatureMaxP50?: number | null
+  relativeHumidityP50?: number | null
+  dewPointP50?: number | null
+  windSpeedP50?: number | null
   modelCount: number
   memberCount: number
 }
