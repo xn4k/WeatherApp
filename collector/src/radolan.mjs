@@ -45,11 +45,11 @@ export function decodeRadolan(buffer, latitude, longitude, radius = 1) {
   const headerEnd = bytes.indexOf(3)
   if (headerEnd < 0) throw new Error('RADOLAN-Header endet nicht mit ETX.')
   const header = bytes.subarray(0, headerEnd).toString('latin1')
-  const grid = header.match(/GP\s*(\d+)x(\d+)/)
+  const grid = header.match(/GP\s*(\d+)x\s*(\d+)/)
   if (!grid) throw new Error('RADOLAN-Grid fehlt im Header.')
   const rows = Number(grid[1])
   const columns = Number(grid[2])
-  const precisionToken = header.match(/PR\s*([^\s]+)/)?.[1] ?? 'E-01'
+  const precisionToken = header.match(/PR\s*(E[+-]\d+)/)?.[1] ?? 'E-01'
   const precision = Number(`1${precisionToken}`)
   const data = bytes.subarray(headerEnd + 1)
   if (data.length < rows * columns * 2) throw new Error('RADOLAN-Datenblock ist unvollstaendig.')
@@ -122,4 +122,29 @@ export async function loadRadolanReferences(location, dates, fetchImpl = fetch) 
     })
   }
   return references
+}
+
+export async function enrichReferencesWithRadolan(location, references, fetchImpl = fetch) {
+  if (!references.length) return { status: 'empty', references: 0 }
+  try {
+    const radar = await loadRadolanReferences(location, references.map((entry) => entry.date), fetchImpl)
+    const byDate = new Map(radar.map((entry) => [entry.date, entry]))
+    let enriched = 0
+    for (const reference of references) {
+      const grid = byDate.get(reference.date)
+      if (!grid) continue
+      reference.stationPrecipitationSum = reference.precipitationSum
+      reference.precipitationSum = grid.precipitationSum
+      reference.radolan = grid
+      reference.variableSources = {
+        ...(reference.variableSources ?? {}),
+        precipitation: grid.source,
+      }
+      reference.precipitationReferenceKind = grid.kind
+      enriched += 1
+    }
+    return { status: enriched ? 'active' : 'unavailable', references: enriched }
+  } catch (error) {
+    return { status: 'unavailable', references: 0, warning: error.message }
+  }
 }

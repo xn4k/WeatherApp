@@ -1,6 +1,7 @@
 import { FieldValue, Firestore } from '@google-cloud/firestore'
 import { compareFusionRuns } from './stability.mjs'
 import { attachFragility } from './evidence-engine.mjs'
+import { buildRunMemory } from './run-memory.mjs'
 
 function serviceAccountOptions() {
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON
@@ -33,6 +34,10 @@ export async function publishSnapshot(database, snapshot) {
   const runRef = locationRef.collection('runs').doc(snapshot.runId)
   const previous = await locationRef.get()
   if (previous.data()?.latestRunId === snapshot.runId) return runRef.path
+  const historySnapshot = await locationRef.collection('runs')
+    .orderBy('capturedAt', 'desc')
+    .limit(11)
+    .get()
 
   const runStability = compareFusionRuns(
     previous.data()?.latestOutlook,
@@ -43,6 +48,27 @@ export async function publishSnapshot(database, snapshot) {
     : snapshot.outlook
   const outlook = attachFragility(outlookWithStability, runStability)
   const batch = database.batch()
+  outlook.runMemory = buildRunMemory(
+    historySnapshot.docs.map((document) => document.data()),
+    outlook,
+  )
+  outlook.forecastPassport = {
+    method: 'forecast-passport-v1.0.0',
+    id: snapshot.runId,
+    immutable: true,
+    capturedAt: snapshot.capturedAt,
+    locationId: snapshot.location.id,
+    algorithmVersion: snapshot.algorithmVersion,
+    modelIds: snapshot.models.map((model) => model.id),
+    modelMembers: Object.fromEntries(snapshot.models.map((model) => [model.id, model.memberCount])),
+    fusionMethod: outlook.fusion?.method ?? null,
+    evidenceMethod: outlook.evidence?.method ?? null,
+    scenarioMethod: outlook.analysis?.scenarios?.method ?? null,
+    dataQuality: outlook.dataQuality?.health ?? 'unknown',
+    payloadHash: snapshot.payloadHash,
+    source: snapshot.source,
+    notice: 'Dieser Pass friert Methoden, Quellen und Member fuer die spaetere Forecast-Autopsie ein.',
+  }
 
   batch.set(locationRef, {
     schemaVersion: snapshot.schemaVersion,

@@ -2,6 +2,7 @@ import { FieldValue } from '@google-cloud/firestore'
 import { aggregateSkill, publicCalibration } from './calibration.mjs'
 import { completedReferenceDates } from './reference.mjs'
 import { bestReferences } from './reference-layer.mjs'
+import { enrichReferencesWithRadolan } from './radolan.mjs'
 import { scoreForecastRun } from './verification.mjs'
 
 const RECENT_RUN_LIMIT = 160
@@ -116,13 +117,28 @@ export async function updateVerification(
 ) {
   const dates = completedReferenceDates(location.timezone, now, backfillDays)
   const references = await bestReferences(location, dates, referenceLayer, fetchImpl)
+  const radolanStatus = await enrichReferencesWithRadolan(location, references, fetchImpl)
   const locationRef = database.collection('publicWeather').doc(location.id)
+  await locationRef.set({ radolanStatus }, { merge: true })
   await commitSets(database, references.map((reference) => ({
     reference: locationRef.collection('references').doc(reference.date),
     data: { ...reference, storedAt: FieldValue.serverTimestamp() },
     options: { merge: true },
   })))
   const newScores = await scoreDueForecasts(database, location, references)
+  if (!newScores) {
+    const current = await locationRef.collection('calibration').doc('current').get()
+    if (current.exists) return {
+      referenceDays: references.length,
+      newScores: 0,
+      calibrationStatus: current.data().status,
+      distinctDays: current.data().distinctDays,
+      minimumDays: current.data().minimumDays,
+      activeBuckets: current.data().activeBuckets,
+      radolanStatus,
+      aggregation: 'unchanged',
+    }
+  }
   const profile = await aggregateStoredScores(database, locationRef, now)
   return {
     referenceDays: references.length,
@@ -131,5 +147,6 @@ export async function updateVerification(
     distinctDays: profile.distinctDays,
     minimumDays: profile.minimumDays,
     activeBuckets: profile.activeBuckets,
+    radolanStatus,
   }
 }

@@ -89,7 +89,13 @@ export async function updateHistoricalBackfill(database, location, { now = new D
   if (!needsRefresh(current.data(), now)) return { status: 'current', models: current.data()?.modelCount ?? 0 }
   const outcomes = await Promise.allSettled(MODELS.map((model) => loadHistoricalModel(location, model, fetchImpl)))
   const successful = outcomes.flatMap((outcome) => outcome.status === 'fulfilled' ? [outcome.value] : [])
-  if (!successful.length) throw new Error('Historischer Shadow-Backfill konnte kein Modell laden.')
+  if (!successful.length) return {
+    method: BACKFILL_VERSION,
+    role: 'research-shadow',
+    status: 'unavailable',
+    modelCount: 0,
+    warnings: outcomes.map((outcome) => outcome.reason?.message ?? 'nicht verfuegbar'),
+  }
   const batch = database.batch()
   for (const model of successful) {
     batch.set(locationRef.collection('researchBackfill').doc(model.modelId), {

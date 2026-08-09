@@ -679,3 +679,9 @@ Für jedes Modul gilt:
 - Keine Werbung, keine Panik, keine künstliche Dringlichkeit.
 - Neue Bereiche werden modular ergänzt.
 
+
+## Research Pipeline v1
+
+Scenario Engine, exakte Unsicherheitszerlegung, Multi-run Memory, Forecast Passport, RADOLAN, historischer Shadow-Backfill, probabilistische Diagnostik und der inaktive Kalibrierungs-Challenger sind in [docs/RESEARCH_PIPELINE.md](docs/RESEARCH_PIPELINE.md) dokumentiert.
+
+Wichtig: Diese Funktionen erweitern die sichtbare Evidenz sofort. Hoehere Prognoseguete darf weiterhin erst nach unabhaengiger Zukunftsverifikation behauptet werden.

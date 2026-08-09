@@ -1,0 +1,62 @@
+name: Deploy Firebase production
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'frontend/**'
+      - 'collector/**'
+      - 'firestore.rules'
+      - 'firestore.indexes.json'
+      - 'firebase.json'
+      - '.firebaserc'
+      - '.github/workflows/**'
+  workflow_dispatch:
+
+concurrency:
+  group: firebase-production
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      FIREBASE_PROJECT_ID: isobar-7d8eb
+      FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Require deployment credentials
+        shell: bash
+        run: |
+          test -n "$FIREBASE_SERVICE_ACCOUNT_JSON" || (echo "::error::FIREBASE_SERVICE_ACCOUNT_JSON is missing" && exit 1)
+
+      - name: Prepare ephemeral Firebase credentials
+        shell: bash
+        run: |
+          node -e "require('fs').writeFileSync(process.env.RUNNER_TEMP + '/firebase-service-account.json', process.env.FIREBASE_SERVICE_ACCOUNT_JSON)"
+          curl --fail --silent --show-error "https://isobar-7d8eb.web.app/__/firebase/init.json" --output "$RUNNER_TEMP/firebase-web-config.json"
+          node -e "const fs=require('fs');const c=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/firebase-web-config.json'));const m={VITE_FIREBASE_API_KEY:c.apiKey,VITE_FIREBASE_AUTH_DOMAIN:c.authDomain,VITE_FIREBASE_PROJECT_ID:c.projectId,VITE_FIREBASE_STORAGE_BUCKET:c.storageBucket,VITE_FIREBASE_MESSAGING_SENDER_ID:c.messagingSenderId,VITE_FIREBASE_APP_ID:c.appId,VITE_FIREBASE_MEASUREMENT_ID:c.measurementId,VITE_WEATHER_SOURCE:'direct',VITE_FIREBASE_ANALYTICS_ENABLED:'false'};fs.writeFileSync('frontend/.env.firebase.local',Object.entries(m).map(([k,v])=>k+'='+v).join('\\n'))"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/firebase-service-account.json" >> "$GITHUB_ENV"
+
+      - name: Verify collector
+        working-directory: collector
+        run: npm ci && npm test && npm run check
+
+      - name: Build Firebase frontend
+        working-directory: frontend
+        run: npm ci && npm run build:firebase
+
+      - name: Deploy hosting, rules and indexes
+        run: npx --yes firebase-tools@latest deploy --only hosting,firestore:rules,firestore:indexes --project "$FIREBASE_PROJECT_ID" --non-interactive

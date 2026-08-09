@@ -1,5 +1,6 @@
 import { round } from './fusion.mjs'
 import { aggregateEvidence } from './evidence-engine.mjs'
+import { buildProbabilisticDiagnostics } from './probabilistic-diagnostics.mjs'
 
 export const CALIBRATION_VERSION = 'skill-calibration-v1.0.0'
 export const MINIMUM_VERIFICATION_DAYS = 14
@@ -128,6 +129,7 @@ export function aggregateSkill(scoreDocuments, configuration = {}) {
     .map(([bucket]) => bucket)
 
   const evidence = aggregateEvidence(scoreDocuments)
+  const diagnostics = buildProbabilisticDiagnostics(scoreDocuments)
   const referenceKinds = new Set(scoreDocuments.map((document) => document.reference?.kind).filter(Boolean))
   const referenceKind = referenceKinds.has('station-observation')
     ? 'dwd-station'
@@ -143,6 +145,7 @@ export function aggregateSkill(scoreDocuments, configuration = {}) {
     activeBuckets,
     metricsByBucket,
     weightsByBucket,
+    diagnostics,
     evidence,
     notice: activeBuckets.length
       ? 'Skill-Gewichte sind nach Vorhersagehorizont getrennt, zur Gleichgewichtung hin geschrumpft und auf 0,5 bis 2,0 begrenzt.'
@@ -163,6 +166,7 @@ export function publicCalibration(profile) {
     metricsByBucket: profile.metricsByBucket ?? {},
     weightsByBucket: profile.weightsByBucket ?? {},
     evidence: profile.evidence ?? null,
+    diagnostics: profile.diagnostics ?? null,
     notice: profile.notice,
   }
 }

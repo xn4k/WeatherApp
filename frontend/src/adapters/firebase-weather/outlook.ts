@@ -41,6 +41,7 @@ export async function getPublishedOutlook(
       referenceProfile: published?.referenceProfile ?? null,
       climateToday: published?.climateToday ?? null,
       latestObservation: published?.latestObservation ?? null,
+      radolanStatus: published?.radolanStatus ?? null,
       source: 'firebase',
     },
     fresh: Number.isFinite(age) && age >= 0 && age <= FRESH_FOR_MS,
