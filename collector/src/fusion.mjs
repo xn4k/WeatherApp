@@ -48,6 +48,10 @@ export function modelBalancedProbability(groups, threshold) {
 }
 
 export function summarizeModel(model) {
+  const optionalMedian = (values, precision = 1) => {
+    const result = quantile(values ?? [], 0.5)
+    return result === null ? null : round(result, precision)
+  }
   return {
     id: model.id,
     name: model.name,
@@ -58,6 +62,11 @@ export function summarizeModel(model) {
       temperatureMedian: round(quantile(day.temperatureMembers, 0.5) ?? 0),
       temperatureP10: round(quantile(day.temperatureMembers, 0.1) ?? 0),
       temperatureP90: round(quantile(day.temperatureMembers, 0.9) ?? 0),
+      apparentTemperatureMedian: optionalMedian(day.apparentTemperatureMembers),
+      apparentTemperatureMaxMedian: optionalMedian(day.apparentTemperatureMaxMembers),
+      relativeHumidityMedian: optionalMedian(day.relativeHumidityMembers, 0),
+      dewPointMedian: optionalMedian(day.dewPointMembers),
+      windSpeedMedian: optionalMedian(day.windSpeedMembers),
       precipitationMedian: round(quantile(day.precipitationMembers, 0.5) ?? 0, 2),
       precipitationP10: round(quantile(day.precipitationMembers, 0.1) ?? 0, 2),
       precipitationP90: round(quantile(day.precipitationMembers, 0.9) ?? 0, 2),
@@ -82,6 +91,13 @@ export function buildFusion(models) {
     const precipitationQuantile = (probability) => (
       round(modelBalancedQuantile(precipitation, probability) ?? 0, 2)
     )
+    const optionalBalancedMedian = (field, precision = 1) => {
+      const value = modelBalancedQuantile(
+        active.map((day) => day[field] ?? []).filter((values) => values.length > 0),
+        0.5,
+      )
+      return value === null ? null : round(value, precision)
+    }
     return [{
       date,
       temperatureP10: round(modelBalancedQuantile(temperatures, 0.1) ?? 0),
@@ -94,6 +110,11 @@ export function buildFusion(models) {
       precipitationP90: precipitationQuantile(0.9),
       rainProbability1mm: round((modelBalancedProbability(precipitation, 1) ?? 0) * 100),
       rainProbability10mm: round((modelBalancedProbability(precipitation, 10) ?? 0) * 100),
+      apparentTemperatureP50: optionalBalancedMedian('apparentTemperatureMembers'),
+      apparentTemperatureMaxP50: optionalBalancedMedian('apparentTemperatureMaxMembers'),
+      relativeHumidityP50: optionalBalancedMedian('relativeHumidityMembers', 0),
+      dewPointP50: optionalBalancedMedian('dewPointMembers'),
+      windSpeedP50: optionalBalancedMedian('windSpeedMembers'),
       modelCount: active.length,
       memberCount: active.reduce((sum, day) => sum + day.temperatureMembers.length, 0),
     }]

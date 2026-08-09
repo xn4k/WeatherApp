@@ -9,6 +9,7 @@ import MethodLab from './MethodLab.vue'
 import EvidencePanel from './EvidencePanel.vue'
 import ClimateCalendar from './ClimateCalendar.vue'
 import ForecastResearchLab from './ForecastResearchLab.vue'
+import ForecastInterpreter from './ForecastInterpreter.vue'
 
 const props = defineProps<{ latitude: number; longitude: number }>()
 
@@ -342,6 +343,9 @@ onBeforeUnmount(() => request?.abort())
         :series="chartSeries"
         :unit="unit"
         :floor-at-zero="unit === 'mm'"
+      />
+      <ForecastInterpreter
+        :outlook="data"
       />
 
 
