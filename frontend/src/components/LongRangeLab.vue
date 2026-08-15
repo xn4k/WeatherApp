@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { getOutlook } from '../api/outlook'
 import type { ChartSeries } from '../types/chart'
+import type { ClimateDay } from '../types/evidence'
 import type { FusionDay, Outlook, OutlookModelDay, OutlookView } from '../types/outlook'
 import LongRangeChart from './LongRangeChart.vue'
 import CalibrationStatusCard from './CalibrationStatus.vue'
@@ -22,6 +23,9 @@ const ensembleMetric = ref<EnsembleMetric>('temperature')
 const showSources = ref(false)
 const loading = ref(false)
 const error = ref('')
+const selectedDate = ref('')
+const selectedClimate = ref<ClimateDay | null>(null)
+const climateLoading = ref(false)
 const results = reactive<Partial<Record<OutlookView, Outlook>>>({})
 let request: AbortController | null = null
 
@@ -44,6 +48,27 @@ const dates = computed(() => {
     : data.value?.ensembles
   return [...(groups ?? [])].sort((a, b) => b.daily.length - a.daily.length)[0]?.daily.map((day) => day.date) ?? []
 })
+
+watch(
+  () => `${data.value?.refreshedAt ?? ''}|${dates.value.join(',')}`,
+  () => {
+    if (!dates.value.includes(selectedDate.value)) {
+      selectedDate.value = dates.value[1] ?? dates.value[0] ?? ''
+    }
+  },
+  { immediate: true },
+)
+
+watch(selectedDate, () => {
+  selectedClimate.value = null
+  climateLoading.value = data.value?.mode === 'ensemble' && Boolean(selectedDate.value)
+})
+
+function handleClimateState(payload: { date: string; climate: ClimateDay | null; loading: boolean }) {
+  if (payload.date !== selectedDate.value) return
+  selectedClimate.value = payload.climate
+  climateLoading.value = payload.loading
+}
 
 const unit = computed(() =>
   (data.value?.mode === 'models' && modelMetric.value !== 'precipitation') ||
@@ -191,6 +216,9 @@ watch(() => [props.latitude, props.longitude], () => {
   delete results['16']
   delete results['30']
   view.value = null
+  selectedDate.value = ''
+  selectedClimate.value = null
+  climateLoading.value = false
   error.value = ''
 })
 onBeforeUnmount(() => request?.abort())
@@ -256,6 +284,13 @@ onBeforeUnmount(() => request?.abort())
           </span>
         </div>
       </div>
+
+      <ForecastInterpreter
+        :outlook="data"
+        v-model:selected-date="selectedDate"
+        :climate="selectedClimate"
+        :climate-loading="climateLoading"
+      />
 
       <section v-if="data.mode === 'ensemble' && data.fusion" class="fusion-console" aria-label="ISOBAR Fusion Status">
         <div class="console-head">
@@ -344,24 +379,25 @@ onBeforeUnmount(() => request?.abort())
         :unit="unit"
         :floor-at-zero="unit === 'mm'"
       />
-      <ForecastInterpreter
-        :outlook="data"
-      />
 
 
       <EvidencePanel
         v-if="data.mode === 'ensemble'"
         :outlook="data"
+        v-model:selected-date="selectedDate"
       />
       <ForecastResearchLab
         v-if="data.mode === 'ensemble'"
         :outlook="data"
+        v-model:selected-date="selectedDate"
       />
       <ClimateCalendar
         v-if="data.mode === 'ensemble'"
         :latitude="latitude"
         :longitude="longitude"
         :outlook="data"
+        v-model:selected-date="selectedDate"
+        @climate-state="handleClimateState"
       />
       <MethodLab :outlook="data" />
       <div class="model-cards">
@@ -406,7 +442,7 @@ nav small { display: block; margin-top: .2rem; font-size: .62rem; text-transform
 .metrics button, .status button, .source-toggle { border: 1px solid var(--line); background: transparent; color: var(--muted); padding: .5rem .75rem; font: .68rem var(--mono); cursor: pointer; }
 .metrics button + button { border-left: 0; }
 .metrics button.active, .source-toggle[aria-pressed='true'] { color: var(--text); background: var(--surface-high); border-color: var(--line-strong); }
-.fusion-console { position: relative; margin: 0 0 .8rem; border: 1px solid var(--line); background: color-mix(in srgb, var(--background) 48%, transparent); }
+.fusion-console { position: relative; margin: .8rem 0; border: 1px solid var(--line); background: color-mix(in srgb, var(--background) 48%, transparent); }
 .console-head { display: flex; justify-content: space-between; gap: 1rem; align-items: center; padding: .75rem 1rem; border-bottom: 1px solid var(--line); }
 .console-head > div { display: flex; align-items: center; gap: 1rem; }
 .console-head strong, .console-head small { color: var(--muted); font: .62rem var(--mono); letter-spacing: .06em; text-transform: uppercase; }

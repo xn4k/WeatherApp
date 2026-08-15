@@ -11,6 +11,8 @@ dramatisierende Schlagzeilen.
 - Lokal mit Docker: <http://localhost:8090>
 - Architektur und Lernpfad: [ISOBAR verstehen](docs/ARCHITECTURE.md)
 - Verifikation und Skill-Gewichte: [Methodik und Grenzen](docs/VERIFICATION.md)
+- Regelbasierte Erklärungen: [Forecast Interpretation Engine](docs/INTERPRETATION_ENGINE.md)
+- Oberfläche und Graphen: [UI-, Labor- und Graphmodule](docs/UI_AND_GRAPH_MODULES.md)
 - Daten und Geocoding: [Open-Meteo](https://open-meteo.com/)
 
 ## Status
@@ -172,6 +174,14 @@ Für zentral überwachte Orte ergänzt der GitHub-Actions-Collector die Rohfusio
 - ein gepaartes Out-of-Sample-Gate mit mindestens 30 unabhängigen Zukunftstagen.
 
 Der Shadow-Challenger verändert die Live-Prognose nicht. Auch ein positives Gate löst keine automatische Promotion aus. Methodik und Grenzen stehen in der [Evidence-Engine-Dokumentation](docs/EVIDENCE_ENGINE.md).
+
+### Forecast Interpretation Engine
+
+Das Wetterbriefing führt die vorhandenen Daten für genau einen Gültigkeitstag zusammen. Sechs getrennte Module erklären Wetterlage, Modellstreuung, Szenarien, historischen Klimakontext, Verifikationsstand und Datenqualität. Die Oberfläche bietet einen bewusst einfachen Überblick, freiwilligen Kontext und eine getrennte Methodikansicht mit Originalwerten und Quellpfaden. Fehlende Zusatzmodule erzeugen im Überblick keine leeren Karten.
+
+Die Texte sind deterministisch und regelbasiert. Die Engine erzeugt keine neue Prognose, verändert keine Rohdaten und verwendet kein Sprachmodell. Fehlende Bereiche werden als teilweise oder nicht verfügbar ausgewiesen. Forecast Interpreter, Evidence Engine, Scenario Engine und Climate Time Machine teilen sich dieselbe Datumsauswahl.
+
+Architektur, Schwellenwerte, Testinvarianten und Erweiterungsworkflow stehen in der [Dokumentation der Interpretation Engine](docs/INTERPRETATION_ENGINE.md).
 
 ### Interaktion und Barrierearmut
 
@@ -361,6 +371,7 @@ WeatherApp/
 │  │  ├─ adapters/browser-weather/     Spark-/Browseradapter
 │  │  ├─ components/                   Vue-Oberfläche und Charts
 │  │  ├─ composables/                  Palette Engine
+│  │  ├─ lib/interpretation/           modulare Forecast-Erklärungen
 │  │  ├─ lib/                          Firebase und Formatierung
 │  │  └─ types/                        gemeinsame TypeScript-Verträge
 │  ├─ .env.firebase                    Firebase-Buildmodus
@@ -554,7 +565,7 @@ Die serverlose Forschungsstufe speichert versionierte Prognose-Snapshots und Run
 
 Ab 14 verschiedenen Verifikationstagen dürfen konservativ geschrumpfte, begrenzte Skill-Gewichte aktiv werden. Ein separater Evidence-Shadow untersucht lokalen Temperatur-Bias, Fehlerabhängigkeit und Intervall-Coverage, verändert den Live-Champion aber nicht.
 
-Das Out-of-Sample-Gate benötigt mindestens 30 unabhängige Zukunftstage und eine positive untere 95-%-Grenze der gepaarten CRPS-Verbesserung. Bis diese reale Zeit verstrichen ist, bleibt die Baseline aktiv. Offen sind unter anderem RADOLAN, vollständige Regenkalibrierung, saisonale Auswertung und Drift-Erkennung. Details stehen in der [Evidence-Engine-Dokumentation](docs/EVIDENCE_ENGINE.md).
+Das Out-of-Sample-Gate benötigt mindestens 30 unabhängige Zukunftstage und eine positive untere 95-%-Grenze der gepaarten CRPS-Verbesserung. Bis diese reale Zeit verstrichen ist, bleibt die Baseline aktiv. RADOLAN, Reliability-Bins und der Kalibrierungs-Challenger sind technisch vorbereitet; offen bleiben vor allem genügend Zukunftsevidenz, vollständige Regenkalibrierung, saisonale Auswertung und Drift-Erkennung. Details stehen in der [Evidence-Engine-Dokumentation](docs/EVIDENCE_ENGINE.md).
 
 ## Firebase Spark: Möglichkeiten und Grenzen
 
@@ -626,6 +637,7 @@ Frontend und TypeScript:
 
 ```powershell
 cd frontend
+npm run test
 npm run lint
 npm run build
 npm run build:firebase

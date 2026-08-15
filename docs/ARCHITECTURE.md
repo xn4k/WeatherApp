@@ -9,12 +9,14 @@ flowchart LR
     A[Open-Meteo APIs] --> B[Collector in GitHub Actions]
     B --> C[Modellbalancierte Rohfusion]
     C --> D[Versionierter Snapshot in Firestore]
-    D --> E[Vue-Anwendung]
+    D --> J[Regelbasierte Interpretation Engine]
+    J --> E[Vue-Anwendung]
     D --> F[Run-to-run-Vergleich]
     G[Beobachtungen] --> H[Verifikation]
     D --> H
     H --> I[Gelernte Gewichte und Kalibrierung]
     I --> E
+    K[DWD Klimakalender] --> J
     A -. Live-Fallback .-> E
 ```
 
@@ -56,6 +58,7 @@ Der Collector besteht aus kleinen Schichten:
 - `snapshot.mjs` versioniert und hasht Datensätze.
 - `firestore.mjs` speichert Daten, verändert aber keine Meteorologie.
 - `cli.mjs` verbindet die Bausteine für den zeitgesteuerten Job.
+- `frontend/src/lib/interpretation` übersetzt einen fertigen Outlook in nachvollziehbare, quellengebundene Erklärungen und verändert keine Prognosewerte.
 
 Damit kann Firestore später durch PostgreSQL ersetzt werden, ohne die Formeln oder die Oberfläche neu zu schreiben. Umgekehrt können neue Modelle ergänzt werden, ohne die Persistenz umzubauen.
 
@@ -100,24 +103,30 @@ Bereits umgesetzt:
 - konservative Skill-Gewichte ab 14 verschiedenen Verifikationstagen;
 - sichtbarer Lern- und Aktivstatus im 30-Tage-Labor;
 - direkter Browser-Fallback für noch nicht überwachte Standorte.
+- modulare Interpretation für Wetter, Fusion, Szenarien, Klima, Evidence und Datenqualität;
+- gemeinsame Tagesauswahl zwischen Forecast Interpreter, Evidence, Scenario Engine und Climate Time Machine;
+- drei Erklärungstiefen bis hin zu Methodenversionen und Quellpfaden.
 
 Noch nicht als fertige Wissenschaft behauptet:
 
 - Skill-Gewichtung und Fragility sind keine vollständige Wahrscheinlichkeitskalibrierung;
 - das Out-of-Sample-Gate braucht reale zukünftige Beobachtungstage;
-- RADOLAN, Reliability-Diagramme, EMOS und Drift-Erkennung sind noch offen;
+- RADOLAN, Reliability-Bins und der EMOS-lite-/Quantile-Mapping-Challenger sind technisch vorbereitet, aber ihre belastbare Zukunftsevidenz ist noch unvollständig;
+- vollständige Regenkalibrierung und Drift-Erkennung sind noch offen;
 - es gibt noch keine belastbare Aussage, dass ISOBAR genauer als ein Einzelmodell ist.
 
 Methodik und Schutzregeln stehen in [Forecast-Verifikation und Skill-Gewichte](VERIFICATION.md).
 
+Die Übersetzung dieser Forschungsdaten in Alltagssprache ist getrennt in der [Forecast Interpretation Engine](INTERPRETATION_ENGINE.md) dokumentiert. Die sichtbaren Charts und Laborkomponenten stehen in [UI-, Labor- und Graphmodule](UI_AND_GRAPH_MODULES.md).
+
 ## Sinnvolle Ausbaustufen
 
 1. Weitere feste Standorte sammeln und Datenlücken überwachen.
-2. RADOLAN als flächige Niederschlagsreferenz ergänzen.
+2. RADOLAN-Abdeckung und Datenlücken im laufenden Collector überwachen.
 3. Gütemaße nach Ort, Saison und Wetterlage aufteilen.
-4. Reliability-Diagramme und probabilistische Regenkalibrierung ergänzen.
+4. Reliability-Auswertung über genügend unabhängige Tage stabilisieren und probabilistische Regenkalibrierung ergänzen.
 5. Das Shadow-Gate über reale Zukunftstage beobachten und nur echte Verbesserungen reviewen.
-6. Erst danach EMOS oder Quantile Mapping als neuen versionierten Challenger testen.
+6. EMOS-lite beziehungsweise Quantile Mapping erst nach bestandenem Gate als versionierte Promotion prüfen.
 7. Später optionale Favoriten, Benachrichtigungen und Nutzerkonten hinzufügen.
 
 Die fachlich wichtigste Regel bleibt: Ein komplizierter Algorithmus ist nicht automatisch ein besserer Algorithmus. Jede neue Methode muss gegen eine einfache, eingefrorene Baseline gewinnen.
