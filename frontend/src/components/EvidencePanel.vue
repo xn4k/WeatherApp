@@ -2,14 +2,23 @@
 import { computed, ref, watch } from 'vue'
 import type { Outlook } from '../types/outlook'
 
-const props = defineProps<{ outlook: Outlook }>()
-const selectedDate = ref(props.outlook.fusion?.daily[1]?.date ?? props.outlook.fusion?.daily[0]?.date ?? '')
-
-watch(() => props.outlook.refreshedAt, () => {
-  selectedDate.value = props.outlook.fusion?.daily[1]?.date ?? props.outlook.fusion?.daily[0]?.date ?? ''
+const props = withDefaults(defineProps<{ outlook: Outlook; selectedDate?: string }>(), { selectedDate: '' })
+const emit = defineEmits<{ 'update:selectedDate': [date: string] }>()
+const localDate = ref('')
+const selectedDate = computed({
+  get: () => props.selectedDate || localDate.value,
+  set: (date: string) => {
+    localDate.value = date
+    emit('update:selectedDate', date)
+  },
 })
-
 const fusionDays = computed(() => props.outlook.fusion?.daily ?? [])
+
+watch(() => `${props.outlook.refreshedAt}|${fusionDays.value.map((day) => day.date).join(',')}|${props.selectedDate}`, () => {
+  if (!fusionDays.value.some((day) => day.date === selectedDate.value)) {
+    selectedDate.value = fusionDays.value[1]?.date ?? fusionDays.value[0]?.date ?? ''
+  }
+}, { immediate: true })
 const champion = computed(() => fusionDays.value.find((day) => day.date === selectedDate.value))
 const shadow = computed(() => props.outlook.evidence?.daily.find((day) => day.date === selectedDate.value))
 const mosmix = computed(() => props.outlook.challengers?.mosmix?.daily.find((day) => day.date === selectedDate.value))

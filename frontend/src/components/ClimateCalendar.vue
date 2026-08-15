@@ -4,42 +4,82 @@ import { getClimateDay } from '../adapters/firebase-weather/climate'
 import type { ClimateDay } from '../types/evidence'
 import type { Outlook } from '../types/outlook'
 
-const props = defineProps<{ latitude: number; longitude: number; outlook: Outlook }>()
+const props = withDefaults(defineProps<{
+  latitude: number
+  longitude: number
+  outlook: Outlook
+  selectedDate?: string
+}>(), { selectedDate: '' })
+const emit = defineEmits<{
+  'update:selectedDate': [date: string]
+  'climate-state': [payload: { date: string; climate: ClimateDay | null; loading: boolean }]
+}>()
 const dates = computed(() => props.outlook.fusion?.daily.map((day) => day.date) ?? [])
-const selectedDate = ref(dates.value[0] ?? new Date().toISOString().slice(0, 10))
+const localDate = ref('')
+const selectedDate = computed({
+  get: () => props.selectedDate || localDate.value,
+  set: (date: string) => {
+    localDate.value = date
+    emit('update:selectedDate', date)
+  },
+})
 const climate = ref<ClimateDay | null>(props.outlook.climateToday ?? null)
 const loading = ref(false)
 const error = ref('')
 const historyIndex = ref(0)
 const cache = new Map<string, ClimateDay | null>()
+let loadSequence = 0
 
 function monthDay(date: string) { return date.slice(5) }
 
 async function load(date: string) {
+  const sequence = ++loadSequence
   const key = monthDay(date)
-  selectedDate.value = date
   error.value = ''
   const rootDay = props.outlook.climateToday
-  if (rootDay?.monthDay === key) climate.value = rootDay
-  else if (cache.has(key)) climate.value = cache.get(key) ?? null
-  else {
+  if (rootDay?.monthDay === key) {
+    climate.value = rootDay
+    loading.value = false
+  } else if (cache.has(key)) {
+    climate.value = cache.get(key) ?? null
+    loading.value = false
+  } else {
+    climate.value = null
     loading.value = true
+    emit('climate-state', { date, climate: null, loading: true })
     try {
-      climate.value = await getClimateDay(props.latitude, props.longitude, key)
-      cache.set(key, climate.value)
+      const result = await getClimateDay(props.latitude, props.longitude, key)
+      if (sequence !== loadSequence) return
+      climate.value = result
+      cache.set(key, result)
     } catch (cause) {
+      if (sequence !== loadSequence) return
       error.value = cause instanceof Error ? cause.message : 'Klimatag konnte nicht geladen werden.'
       climate.value = null
     } finally {
-      loading.value = false
+      if (sequence === loadSequence) loading.value = false
     }
   }
+  if (sequence !== loadSequence) return
   historyIndex.value = Math.max(0, (climate.value?.history.length ?? 1) - 1)
+  emit('climate-state', { date, climate: climate.value, loading: loading.value })
 }
 
-watch(() => props.outlook.refreshedAt, () => {
-  cache.clear()
-  void load(dates.value[0] ?? new Date().toISOString().slice(0, 10))
+watch(() => [
+  props.latitude,
+  props.longitude,
+  props.outlook.refreshedAt,
+  dates.value.join(','),
+  selectedDate.value,
+], (current, previous) => {
+  if (!previous || current.slice(0, 3).some((value, index) => value !== previous[index])) {
+    cache.clear()
+  }
+  if (!dates.value.includes(selectedDate.value)) {
+    selectedDate.value = dates.value[1] ?? dates.value[0] ?? new Date().toISOString().slice(0, 10)
+    return
+  }
+  void load(selectedDate.value)
 }, { immediate: true })
 
 const forecast = computed(() => props.outlook.fusion?.daily.find((day) => day.date === selectedDate.value))
@@ -88,7 +128,7 @@ function value(number: number | null | undefined, digits = 1) {
     </header>
 
     <div class="climate-days">
-      <button v-for="date in dates" :key="date" type="button" :class="{ active: selectedDate === date }" @click="load(date)">{{ shortDate(date) }}</button>
+      <button v-for="date in dates" :key="date" type="button" :class="{ active: selectedDate === date }" @click="selectedDate = date">{{ shortDate(date) }}</button>
     </div>
 
     <div v-if="loading" class="climate-status">Stationsarchiv wird geöffnet …</div>

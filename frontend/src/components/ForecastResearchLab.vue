@@ -3,14 +3,24 @@ import { computed, ref, watch } from 'vue'
 import type { Outlook } from '../types/outlook'
 import MetricHelp from './MetricHelp.vue'
 
-const props = defineProps<{ outlook: Outlook }>()
-const selectedDate = ref(props.outlook.fusion?.daily[1]?.date ?? props.outlook.fusion?.daily[0]?.date ?? '')
+const props = withDefaults(defineProps<{ outlook: Outlook; selectedDate?: string }>(), { selectedDate: '' })
+const emit = defineEmits<{ 'update:selectedDate': [date: string] }>()
+const localDate = ref('')
+const selectedDate = computed({
+  get: () => props.selectedDate || localDate.value,
+  set: (date: string) => {
+    localDate.value = date
+    emit('update:selectedDate', date)
+  },
+})
 const selectedWindow = ref(props.outlook.analysis?.scenarios.windows[0]?.id ?? '')
 
-watch(() => props.outlook.refreshedAt, () => {
-  selectedDate.value = props.outlook.fusion?.daily[1]?.date ?? props.outlook.fusion?.daily[0]?.date ?? ''
+watch(() => `${props.outlook.refreshedAt}|${props.outlook.fusion?.daily.map((day) => day.date).join(',') ?? ''}|${props.selectedDate}`, () => {
+  if (!props.outlook.fusion?.daily.some((day) => day.date === selectedDate.value)) {
+    selectedDate.value = props.outlook.fusion?.daily[1]?.date ?? props.outlook.fusion?.daily[0]?.date ?? ''
+  }
   selectedWindow.value = props.outlook.analysis?.scenarios.windows[0]?.id ?? ''
-})
+}, { immediate: true })
 
 const dates = computed(() => props.outlook.fusion?.daily ?? [])
 const uncertainty = computed(() => props.outlook.analysis?.uncertainty.daily.find((day) => day.date === selectedDate.value))

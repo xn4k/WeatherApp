@@ -102,8 +102,7 @@ Aktuell gespeichert werden Temperatur-MAE, Temperatur-CRPS, Niederschlags-MAE un
 
 Noch nicht abgeschlossen:
 
-- RADOLAN-Radarniederschlag als flächige Zusatzreferenz;
-- Reliability-Diagramme und vollständige probabilistische Regenkalibrierung;
+- vollständige probabilistische Regenkalibrierung über genügend unabhängige Zukunftstage;
 - saisonale, wetterlagen- und stationsübergreifende Auswertung;
 - Drift-Erkennung nach Provider- oder Modellversionswechseln;
 - belastbare Aussage, dass ISOBAR besser als Einzelmodelle oder kommerzielle Wetter-Apps ist.
